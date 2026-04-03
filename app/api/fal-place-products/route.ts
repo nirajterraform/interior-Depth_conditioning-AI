@@ -52,13 +52,20 @@ async function resizeDataUri(
 }
 
 async function fetchBuffer(url: string): Promise<Buffer | null> {
-  try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(20000) });
-    if (!res.ok) return null;
-    return Buffer.from(await res.arrayBuffer());
-  } catch {
-    return null;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(45000) });
+      if (!res.ok) {
+        if (attempt < 3) continue;
+        return null;
+      }
+      return Buffer.from(await res.arrayBuffer());
+    } catch {
+      if (attempt < 3) continue;
+      return null;
+    }
   }
+  return null;
 }
 
 async function fetchRemoteImageAsDataUri(imageUrl: string): Promise<string | null> {
@@ -744,6 +751,8 @@ export async function POST(req: NextRequest) {
     for (const url of productUploadResults) {
       if (url) imageUrls.push(url);
     }
+
+    console.log(`Uploaded ${imageUrls.length - 1} of ${products.length} product images to fal`);
 
     if (imageUrls.length === 1) {
       return NextResponse.json(
