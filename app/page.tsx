@@ -126,6 +126,9 @@ export default function Home() {
   const [genElapsed, setGenElapsed] = useState<number | null>(null);
   const genStartRef = useRef<number | null>(null);
 
+  // More Matches search
+  const [moreSearch, setMoreSearch] = useState("");
+
   // Targeted edit state
   const [editInstruction, setEditInstruction] = useState("");
   const [editLoading, setEditLoading] = useState(false);
@@ -163,6 +166,22 @@ export default function Home() {
     () => products.filter((p) => selected.has(p.product_handle) && hasValidImage(p)),
     [products, selected]
   );
+
+  // All products fetched across all More Matches pages
+  const allMoreProducts = useMemo(
+    () => [...morePages.values()].flat(),
+    [morePages]
+  );
+
+  // Filtered results when user types in More Matches search box
+  const moreSearchResults = useMemo(() => {
+    const q = moreSearch.trim().toLowerCase();
+    if (!q) return null;
+    return allMoreProducts.filter((p) => {
+      const text = `${p.title} ${p.category ?? ""} ${p.normalized_category ?? ""}`.toLowerCase();
+      return text.includes(q);
+    });
+  }, [moreSearch, allMoreProducts]);
 
   // Push a new image onto the history stack (called after every edit/generation)
   const pushHistory = useCallback((img: string) => {
@@ -393,6 +412,7 @@ export default function Home() {
     setValidationRejected(false);
     genStartRef.current = Date.now();
     setGenElapsed(0);
+    setMoreSearch("");
 
     try {
       const res = await fetch("/api/fal-place-products", {
@@ -1020,7 +1040,7 @@ export default function Home() {
           {stage === "done" && (
             <section id="more-matches" style={{ background: "white", borderRadius: 20, border: "1px solid #e5e7eb", padding: "22px 24px" }}>
               {/* Header */}
-              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 16 }}>
+              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 16, gap: 16, flexWrap: "wrap" }}>
                 <div>
                   <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: 0.5, textTransform: "uppercase" }}>
                     More Matches
@@ -1029,9 +1049,94 @@ export default function Home() {
                     Browse more {effectiveRoom ? ROOM_LABELS[effectiveRoom] : "room"} products for your {effectiveTheme} theme
                   </div>
                 </div>
+                {/* Search box */}
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flex: "0 0 auto" }}>
+                  <input
+                    type="text"
+                    placeholder="Search products e.g. coffee table…"
+                    value={moreSearch}
+                    onChange={(e) => setMoreSearch(e.target.value)}
+                    style={{
+                      padding: "8px 12px", borderRadius: 10, border: "1px solid #d1d5db",
+                      fontSize: 13, width: 260, outline: "none",
+                    }}
+                  />
+                  {moreSearch && (
+                    <button
+                      onClick={() => setMoreSearch("")}
+                      style={{ fontSize: 12, color: "#6b7280", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
               </div>
 
-              {/* Page tabs */}
+              {/* Search results */}
+              {moreSearchResults !== null ? (
+                <>
+                  <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 14 }}>
+                    {moreSearchResults.length === 0
+                      ? `No results for "${moreSearch}" — try loading more pages below`
+                      : `${moreSearchResults.length} result${moreSearchResults.length !== 1 ? "s" : ""} for "${moreSearch}"`}
+                  </div>
+                  {moreSearchResults.length > 0 && (
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 16, marginBottom: 20 }}>
+                      {moreSearchResults.map((product: Product, idx: number) => (
+                        <div
+                          key={`search-${product.product_handle}-${idx}`}
+                          style={{
+                            display: "flex", flexDirection: "column",
+                            borderRadius: 14, overflow: "hidden",
+                            border: "1px solid #e5e7eb", background: "white",
+                            boxShadow: "0 1px 4px rgba(0,0,0,0.05)",
+                          }}
+                        >
+                          <img
+                            src={product.image_url || ""}
+                            alt={product.title}
+                            style={{ width: "100%", height: 160, objectFit: "cover", display: "block" }}
+                          />
+                          <div style={{ padding: "10px 12px", flex: 1, display: "flex", flexDirection: "column" }}>
+                            <div style={{
+                              fontSize: 12, fontWeight: 700, lineHeight: 1.35,
+                              display: "-webkit-box", WebkitLineClamp: 2,
+                              WebkitBoxOrient: "vertical", overflow: "hidden",
+                            }}>
+                              {product.title}
+                            </div>
+                            <div style={{ fontSize: 10, color: "#9ca3af", marginTop: 4, textTransform: "uppercase", letterSpacing: 0.4 }}>
+                              {product.normalized_category || product.category || "furniture"}
+                            </div>
+                            <div style={{ fontSize: 12, fontWeight: 700, color: "#111827", marginTop: 4 }}>
+                              {formatPrice(product.min_price, product.max_price)}
+                            </div>
+                            {generatedImage && stage === "done" && (
+                              <button
+                                onClick={() => tryInRoom(product)}
+                                disabled={swappingHandle === product.product_handle || editLoading}
+                                style={{
+                                  marginTop: 8, width: "100%",
+                                  borderRadius: 8, border: "1px solid #111827",
+                                  background: swappingHandle === product.product_handle ? "#f3f4f6" : "#111827",
+                                  color: swappingHandle === product.product_handle ? "#6b7280" : "white",
+                                  padding: "7px 0", fontSize: 12, fontWeight: 700,
+                                  cursor: swappingHandle === product.product_handle || editLoading ? "not-allowed" : "pointer",
+                                }}
+                              >
+                                {swappingHandle === product.product_handle ? "Swapping…" : "Try in Room"}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              ) : null}
+
+              {/* Page tabs — hidden when searching */}
+              {!moreSearch && (
               <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
                 {Array.from({ length: totalMorePages }, (_, i) => i + 1).map((page) => (
                   <button
@@ -1061,9 +1166,10 @@ export default function Home() {
                   {loadingMore ? "Loading…" : "+ Next Page"}
                 </button>
               </div>
+              )}
 
-              {/* Product grid for current page */}
-              {currentMorePage !== null && (morePages.get(currentMorePage) ?? []).length > 0 && (
+              {/* Product grid for current page — hidden when searching */}
+              {!moreSearch && currentMorePage !== null && (morePages.get(currentMorePage) ?? []).length > 0 && (
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 16 }}>
                   {(morePages.get(currentMorePage) ?? []).map((product: Product, idx: number) => (
                     <div
@@ -1118,7 +1224,7 @@ export default function Home() {
               )}
 
               {/* Empty state before first page is loaded */}
-              {currentMorePage === null && !loadingMore && (
+              {!moreSearch && currentMorePage === null && !loadingMore && (
                 <div style={{ textAlign: "center", padding: "32px 0", color: "#9ca3af", fontSize: 14 }}>
                   Click &quot;+ Next Page&quot; to browse more products
                 </div>
