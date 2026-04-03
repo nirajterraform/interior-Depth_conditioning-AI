@@ -62,19 +62,25 @@ async function fetchBuffer(url: string): Promise<Buffer | null> {
 }
 
 async function fetchRemoteImageAsDataUri(imageUrl: string): Promise<string | null> {
-  try {
-    const res = await fetch(imageUrl, { signal: AbortSignal.timeout(20000) });
-    if (!res.ok) {
-      console.warn(`Failed to fetch product image: ${imageUrl} (${res.status})`);
+  // Retry up to 3 times with 45s timeout — GCP VM may be slower to reach Shopify CDN
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const res = await fetch(imageUrl, { signal: AbortSignal.timeout(45000) });
+      if (!res.ok) {
+        console.warn(`Failed to fetch product image (attempt ${attempt}): ${imageUrl} (${res.status})`);
+        if (attempt < 3) continue;
+        return null;
+      }
+      const buf = Buffer.from(await res.arrayBuffer());
+      const mimeType = (res.headers.get("content-type") || "image/jpeg").split(";")[0].trim();
+      return `data:${mimeType};base64,${buf.toString("base64")}`;
+    } catch (err) {
+      console.warn(`Failed to fetch product image (attempt ${attempt}): ${imageUrl}`, err);
+      if (attempt < 3) continue;
       return null;
     }
-    const buf = Buffer.from(await res.arrayBuffer());
-    const mimeType = (res.headers.get("content-type") || "image/jpeg").split(";")[0].trim();
-    return `data:${mimeType};base64,${buf.toString("base64")}`;
-  } catch (err) {
-    console.warn(`Failed to fetch product image: ${imageUrl}`, err);
-    return null;
   }
+  return null;
 }
 
 // FIX: was slice(0, 4) — silently dropped products when user selected up to 6.
