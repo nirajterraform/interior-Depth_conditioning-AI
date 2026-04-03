@@ -991,6 +991,8 @@ export default function Home() {
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 18 }}>
                 {validation!.inventedItems.map((itemName, idx) => {
                   const cropUrl = cropsByName[itemName.toLowerCase()];
+                  // Skip items with no usable crop image
+                  if (!cropUrl) return null;
                   return (
                     <div
                       key={`${itemName}-${idx}`}
@@ -1001,20 +1003,11 @@ export default function Home() {
                       }}
                     >
                       <div style={{ position: "relative" }}>
-                        {cropUrl ? (
-                          <img
-                            src={cropUrl}
-                            alt={`AI invented: ${itemName}`}
-                            style={{ width: "100%", height: 180, objectFit: "cover", display: "block" }}
-                          />
-                        ) : (
-                          <div style={{
-                            height: 120, display: "grid", placeItems: "center",
-                            background: "#fef3c7", fontSize: 36, color: "#f59e0b",
-                          }}>
-                            ?
-                          </div>
-                        )}
+                        <img
+                          src={cropUrl}
+                          alt={`AI invented: ${itemName}`}
+                          style={{ width: "100%", height: 180, objectFit: "cover", display: "block" }}
+                        />
                         <span style={{
                           position: "absolute", top: 10, left: 10,
                           background: "#ef4444", color: "white",

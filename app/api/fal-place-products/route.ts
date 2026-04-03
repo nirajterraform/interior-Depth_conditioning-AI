@@ -559,11 +559,21 @@ async function cropInventedItems(
       const cropH = bottom - top;
 
       // Skip crops that are too small to be meaningful
-      if (cropW < 30 || cropH < 30) continue;
+      if (cropW < 80 || cropH < 80) continue;
 
-      const cropBuf = await sharp(raw)
-        .extract({ left, top, width: cropW, height: cropH })
-        .jpeg({ quality: 88 })
+      // Extract the crop first so we can check brightness
+      const extracted = sharp(raw).extract({ left, top, width: cropW, height: cropH });
+
+      // Check average brightness — skip very dark crops (score < 30/255)
+      const { dominant } = await extracted.clone().stats();
+      const brightness = (dominant.r + dominant.g + dominant.b) / 3;
+      if (brightness < 30) continue;
+
+      // Upscale small crops to at least 300px wide for clear display
+      const targetW = Math.max(300, cropW);
+      const cropBuf = await extracted
+        .resize(targetW, null, { fit: "inside", withoutEnlargement: false })
+        .jpeg({ quality: 90 })
         .toBuffer();
 
       crops.push({
