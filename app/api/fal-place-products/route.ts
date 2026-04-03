@@ -15,7 +15,7 @@ const ai = new GoogleGenAI({
 // Was 93/72 — both were unrealistically strict, causing near-constant rejection.
 const MIN_GEOMETRY_SCORE = 88;
 const MIN_CATALOGUE_AVG = 82;
-const MAX_ATTEMPTS = 3;
+const MAX_ATTEMPTS = 1;
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
 
@@ -709,20 +709,10 @@ export async function POST(req: NextRequest) {
     const resizedRoom = await resizeDataUri(originalImage, 1280);
     const roomUrl = await uploadToFal(resizedRoom.dataUri, "room_base.jpg");
 
-    // ── Parallel: depth extraction + product visual descriptions ───────────
-    // Both are best-effort. If either fails the pipeline continues with
-    // fallback text for descriptions and no depth image for the edit.
-    const [depthUrl, productDescriptions] = await Promise.all([
-      extractDepthMap(roomUrl),
-      Promise.all(
-        products.map((p) => describeProductVisually(p.imageUrl, p.title, p.category))
-      ),
-    ]);
-
-    const hasDepth = Boolean(depthUrl);
-    console.log(
-      `Depth: ${hasDepth ? "yes" : "no (fallback)"}. Products described: ${productDescriptions.length}`
-    );
+    // Product descriptions: use title + category only (no Gemini vision call)
+    // to avoid ~10s overhead per generation.
+    const productDescriptions = products.map((p) => `${p.title} — ${p.category}`);
+    console.log(`Products: ${products.length}`);
 
     // ── Build image URL array for flux edit ────────────────────────────────
     // Layout: [room, product1, product2, ...]
@@ -783,13 +773,9 @@ export async function POST(req: NextRequest) {
 
       const generatedImage = await falUrlToDataUri(generatedUrl);
 
-      // Run pixel-level geometry check and Gemini semantic validation in parallel
-      const [backgroundGeometryScore, geminiValidation] = await Promise.all([
-        buildBackgroundMaskScore(originalImage, generatedImage),
-        validateWithGemini({ originalImage, generatedImage, roomType, theme, products }),
-      ]);
-
-      const validation = mergeValidationScores(geminiValidation, backgroundGeometryScore);
+      // Gemini-only validation (rembg background score removed to save ~15s per attempt)
+      const geminiValidation = await validateWithGemini({ originalImage, generatedImage, roomType, theme, products });
+      const validation = mergeValidationScores(geminiValidation, 0);
 
       // Crop invented items from this attempt's generated image
       const inventedItemCrops = await cropInventedItems(
