@@ -122,8 +122,9 @@ export default function Home() {
   const [validation, setValidation] = useState<ValidationReport | null>(null);
   const [inventedItemCrops, setInventedItemCrops] = useState<InventedItemCrop[]>([]);
 
-  // Generation timer
+  // Generation / edit timer
   const [genElapsed, setGenElapsed] = useState<number | null>(null);
+  const [timerMode, setTimerMode] = useState<"generating" | "swapping" | "editing" | null>(null);
   const genStartRef = useRef<number | null>(null);
 
   // More Matches search
@@ -151,16 +152,16 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stage]);
 
-  // Generation timer — ticks every second while stage === "generating"
+  // Timer — ticks every second while generating, swapping, or editing
   useEffect(() => {
-    if (stage !== "generating") return;
+    if (!timerMode) return;
     const interval = setInterval(() => {
       if (genStartRef.current !== null) {
         setGenElapsed(Math.floor((Date.now() - genStartRef.current) / 1000));
       }
     }, 1000);
     return () => clearInterval(interval);
-  }, [stage]);
+  }, [timerMode]);
 
   const selectedProducts = useMemo(
     () => products.filter((p) => selected.has(p.product_handle) && hasValidImage(p)),
@@ -212,6 +213,9 @@ export default function Home() {
     if (!generatedImage || !editInstruction.trim() || !effectiveRoom) return;
     setEditLoading(true);
     setEditError("");
+    genStartRef.current = Date.now();
+    setGenElapsed(0);
+    setTimerMode("editing");
     try {
       const res = await fetch("/api/targeted-edit", {
         method: "POST",
@@ -231,6 +235,7 @@ export default function Home() {
       setEditError(err instanceof Error ? err.message : "Edit failed");
     } finally {
       setEditLoading(false);
+      setTimerMode(null);
     }
   }, [generatedImage, editInstruction, effectiveRoom, effectiveTheme, pushHistory]);
 
@@ -238,6 +243,9 @@ export default function Home() {
     if (!generatedImage || !effectiveRoom) return;
     setSwappingHandle(product.product_handle);
     setEditError("");
+    genStartRef.current = Date.now();
+    setGenElapsed(0);
+    setTimerMode("swapping");
     try {
       const res = await fetch("/api/targeted-edit", {
         method: "POST",
@@ -260,6 +268,7 @@ export default function Home() {
       setEditError(err instanceof Error ? err.message : "Product swap failed");
     } finally {
       setSwappingHandle(null);
+      setTimerMode(null);
     }
   }, [generatedImage, effectiveRoom, effectiveTheme, pushHistory]);
 
@@ -412,6 +421,7 @@ export default function Home() {
     setValidationRejected(false);
     genStartRef.current = Date.now();
     setGenElapsed(0);
+    setTimerMode("generating");
     setMoreSearch("");
 
     try {
@@ -452,16 +462,17 @@ export default function Home() {
       }
 
       if (!data.ok) {
-        // Validation rejected all attempts — show best-effort image with warning
         setValidationRejected(true);
         setError(data.error || "Generation failed validation.");
-        setStage("done"); // still "done" so results are visible
+        setStage("done");
       } else {
         setValidationRejected(false);
         setStage("done");
         setStageMsg("");
       }
+      setTimerMode(null);
     } catch (err) {
+      setTimerMode(null);
       setStage("error");
       setError(err instanceof Error ? err.message : "Generation failed.");
       setStageMsg("");
@@ -497,12 +508,12 @@ export default function Home() {
         </div>
         <div style={{ fontSize: 13, opacity: 0.9, display: "flex", alignItems: "center", gap: 10 }}>
           {stageMsg || (stage === "done" ? (validationRejected ? "Best-effort shown (rejected)" : "Accepted") : "")}
-          {stage === "generating" && genElapsed !== null && (
+          {timerMode && genElapsed !== null && (
             <span style={{ fontVariantNumeric: "tabular-nums", background: "rgba(255,255,255,0.15)", borderRadius: 6, padding: "2px 8px", fontSize: 12 }}>
               ⏱ {genElapsed}s
             </span>
           )}
-          {stage === "done" && genElapsed !== null && (
+          {!timerMode && genElapsed !== null && (
             <span style={{ fontVariantNumeric: "tabular-nums", background: "rgba(255,255,255,0.15)", borderRadius: 6, padding: "2px 8px", fontSize: 12 }}>
               ✓ {genElapsed}s
             </span>
