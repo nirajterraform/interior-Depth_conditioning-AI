@@ -122,6 +122,10 @@ export default function Home() {
   const [validation, setValidation] = useState<ValidationReport | null>(null);
   const [inventedItemCrops, setInventedItemCrops] = useState<InventedItemCrop[]>([]);
 
+  // Generation timer
+  const [genElapsed, setGenElapsed] = useState<number | null>(null);
+  const genStartRef = useRef<number | null>(null);
+
   // Targeted edit state
   const [editInstruction, setEditInstruction] = useState("");
   const [editLoading, setEditLoading] = useState(false);
@@ -142,6 +146,17 @@ export default function Home() {
       goToMorePage(1);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage]);
+
+  // Generation timer — ticks every second while stage === "generating"
+  useEffect(() => {
+    if (stage !== "generating") return;
+    const interval = setInterval(() => {
+      if (genStartRef.current !== null) {
+        setGenElapsed(Math.floor((Date.now() - genStartRef.current) / 1000));
+      }
+    }, 1000);
+    return () => clearInterval(interval);
   }, [stage]);
 
   const selectedProducts = useMemo(
@@ -376,6 +391,8 @@ export default function Home() {
     setValidation(null);
     setInventedItemCrops([]);
     setValidationRejected(false);
+    genStartRef.current = Date.now();
+    setGenElapsed(0);
 
     try {
       const res = await fetch("/api/fal-place-products", {
@@ -458,8 +475,18 @@ export default function Home() {
             Depth-conditioned editing · Gemini validation · Hallucination detection
           </div>
         </div>
-        <div style={{ fontSize: 13, opacity: 0.9 }}>
+        <div style={{ fontSize: 13, opacity: 0.9, display: "flex", alignItems: "center", gap: 10 }}>
           {stageMsg || (stage === "done" ? (validationRejected ? "Best-effort shown (rejected)" : "Accepted") : "")}
+          {stage === "generating" && genElapsed !== null && (
+            <span style={{ fontVariantNumeric: "tabular-nums", background: "rgba(255,255,255,0.15)", borderRadius: 6, padding: "2px 8px", fontSize: 12 }}>
+              ⏱ {genElapsed}s
+            </span>
+          )}
+          {stage === "done" && genElapsed !== null && (
+            <span style={{ fontVariantNumeric: "tabular-nums", background: "rgba(255,255,255,0.15)", borderRadius: 6, padding: "2px 8px", fontSize: 12 }}>
+              ✓ {genElapsed}s
+            </span>
+          )}
         </div>
       </header>
 
