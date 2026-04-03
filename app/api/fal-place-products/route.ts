@@ -795,7 +795,7 @@ export async function POST(req: NextRequest) {
           debug: {
             model: "fal-ai/flux-2-pro/edit",
             generatedUrl,
-            backgroundGeometryScore,
+            backgroundGeometryScore: 0,
             attemptsUsed: attempt,
           },
         });
@@ -818,7 +818,7 @@ export async function POST(req: NextRequest) {
           debug: {
             model: "fal-ai/flux-2-pro/edit",
             generatedUrl,
-            backgroundGeometryScore,
+            backgroundGeometryScore: 0,
             attemptsUsed: attempt,
           },
         };
