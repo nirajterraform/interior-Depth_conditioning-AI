@@ -724,21 +724,25 @@ export async function POST(req: NextRequest) {
     // a 422 ValidationError. Geometry is preserved via the prompt instead.
     const imageUrls: string[] = [roomUrl];
 
-    for (let i = 0; i < products.length; i++) {
-      const p = products[i];
-      if (!p?.imageUrl) {
-        console.warn(`Skipping product ${i + 1}: missing imageUrl`);
-        continue;
-      }
-      const productDataUri = p.imageUrl.startsWith("data:")
-        ? p.imageUrl
-        : await fetchRemoteImageAsDataUri(p.imageUrl);
-      if (!productDataUri) {
-        console.warn(`Skipping product ${i + 1}: could not fetch ${p.imageUrl}`);
-        continue;
-      }
-      const productUrl = await uploadToFal(productDataUri, `product_${i + 1}.jpg`);
-      imageUrls.push(productUrl);
+    // Fetch + upload all product images in parallel to avoid sequential latency on GCP
+    const productUploadResults = await Promise.all(
+      products.map(async (p, i) => {
+        if (!p?.imageUrl) {
+          console.warn(`Skipping product ${i + 1}: missing imageUrl`);
+          return null;
+        }
+        const productDataUri = p.imageUrl.startsWith("data:")
+          ? p.imageUrl
+          : await fetchRemoteImageAsDataUri(p.imageUrl);
+        if (!productDataUri) {
+          console.warn(`Skipping product ${i + 1}: could not fetch ${p.imageUrl}`);
+          return null;
+        }
+        return uploadToFal(productDataUri, `product_${i + 1}.jpg`);
+      })
+    );
+    for (const url of productUploadResults) {
+      if (url) imageUrls.push(url);
     }
 
     if (imageUrls.length === 1) {
