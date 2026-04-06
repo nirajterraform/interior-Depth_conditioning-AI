@@ -293,7 +293,7 @@ function buildStrictEditPrompt({
     Number(previousValidation?.geometryScore) < MIN_GEOMETRY_SCORE
   ) {
     retryDirectives.push(
-      `Previous attempt REJECTED for geometry drift (${previousValidation.geometryScore}%). Preserve walls, windows, doors, curtains, ceiling, floor, proportions and camera angle exactly.`
+      `Previous attempt REJECTED for geometry drift (${previousValidation.geometryScore}%). You MUST preserve: walls, windows, doors, curtains, ceiling, floor material/colour, fireplace, archways, room entry frames, and camera angle — ALL exactly as in @image1. Do NOT change any architectural element.`
     );
   }
 
@@ -307,7 +307,11 @@ function buildStrictEditPrompt({
     `• Every door: position, size, frame — unchanged`,
     `• Curtains, blinds, drapes — unchanged`,
     `• Ceiling: height, cornices, beams, light fixtures — unchanged`,
-    `• Floor: material, colour, texture, boundaries — unchanged`,
+    `• Floor: material, colour, texture, boundaries — UNCHANGED. Tile stays tile. Wood stays wood. Carpet stays carpet. DO NOT change floor material under any circumstances.`,
+    `• Fireplace: if visible in @image1, its surround, style, material, and position are LOCKED — do NOT replace, restyle, or remove it`,
+    `• Archways, room entry frames, structural openings — preserve exactly as-is, do NOT remove or reshape`,
+    `• Ceiling fixtures: fan blades, chandelier, pendant lights — preserve exactly`,
+    `• Accent wall panels, decorative wall treatments — unchanged`,
     `• Camera: angle, height, focal length, perspective vanishing points — IDENTICAL to @image1`,
     `• Room proportions and spatial dimensions — unchanged`,
     `You may ONLY touch: movable furniture pieces and their associated soft furnishings.`,
@@ -342,6 +346,17 @@ function buildStrictEditPrompt({
     `• Secondary pieces (chairs, side tables, lamps) — flank or complement hero pieces`,
     `• Accent pieces (rugs, mirrors, decor) — layer in foreground and background for depth`,
     `• If two items share a category, place them symmetrically or in natural conversation`,
+    ``,
+    `═══ SCALE HIERARCHY — real-world proportions, strictly enforced ═══`,
+    `Use the door frame visible in @image1 as the scale anchor (standard door = 200cm tall).`,
+    `• Hero pieces (sofa, bed, dining table): largest items, approx 70–90cm tall`,
+    `• Secondary pieces (armchair, side table, desk lamp): medium, approx 45–75cm tall`,
+    `• Accent pieces (bench, ottoman, stool, floor lamp base): smaller, approx 40–55cm tall`,
+    `• A bench or ottoman must NEVER appear as large as or larger than a sofa or bed`,
+    `• A lamp (floor or table) must NEVER appear wider or taller than a sofa back`,
+    `• Wall art must be sized proportionally to the wall — not oversized`,
+    `• When in doubt, render an item slightly SMALLER rather than larger`,
+    `• Violating these scale rules will cause rejection`,
     ``,
     `STRICT PLACEMENT RULES — violations will cause rejection:`,
     `• DOOR & PASSAGE: Already stated above — no furniture in front of any door or walkway`,
@@ -431,47 +446,66 @@ async function validateWithGemini({
   const productCount = products.length;
 
   const prompt = `
-You are validating an interior room edit for commercial use.
+You are a strict quality validator for a commercial interior design AI tool.
 
 image1 = original room photograph.
-image2 = AI-generated room.
-image3 .. image${productCount + 2} = catalogue product references.
+image2 = AI-generated room (to be validated).
+image3 .. image${productCount + 2} = catalogue product reference images (one per product).
 
-TASK — return a strict JSON validation report:
+TASK — return a strict JSON validation report. Be conservative and strict — do NOT be lenient.
 
-1. geometryScore (0–100): How well image2 preserves the room geometry of image1.
-   Score based on: wall positions, window/door locations, ceiling, floor boundaries, camera angle, perspective.
-   100 = pixel-perfect architecture match. Deduct heavily for moved walls, changed camera angle, added/removed windows.
+━━━ 1. geometryScore (0–100) ━━━
+How faithfully image2 preserves the EXACT room structure of image1.
+Check EACH of the following individually and deduct points for ANY change:
+• Wall surfaces, wall colour, wall panels — any repaint or restyle = -15 pts
+• Floor material and colour — tile→wood, carpet→tile etc. = -20 pts (this is a critical failure)
+• Fireplace — if present in image1: any change to surround, style, or material = -20 pts
+• Archways and room entry frames — if removed or reshaped = -15 pts
+• Windows: position, size, frame — any change = -10 pts
+• Doors: position, size, frame — any change = -10 pts
+• Curtains/blinds — if replaced or removed = -5 pts
+• Ceiling height, cornices, beams — any change = -10 pts
+• Ceiling fixtures (fan, chandelier, pendant) — if changed = -5 pts
+• Camera angle, perspective vanishing points — any shift = -15 pts
+100 = pixel-perfect room shell. A score below 88 means the room structure has significantly changed.
 
-2. For each product reference (image3..):
-   - presentInFinal (bool): Is a recognisable version of this product visible in image2?
-   - similarityScore (0–100): Visual similarity to the reference (shape, material, colour).
-   - notes: one-line observation.
+━━━ 2. Products (one entry per reference image) ━━━
+For each product reference image (image3..image${productCount + 2}):
+- title: product name
+- category: product category
+- presentInFinal (bool): Is this specific product VISUALLY recognisable in image2?
+- similarityScore (0–100): How closely does the item in image2 match the VISUAL appearance of the reference?
+  Score on: dominant colour match, material/texture match, silhouette/shape match, overall style match.
+  A different colour of the same product shape = max 60. A completely different looking item = max 30.
+  Do NOT score high just because the category matches — score on VISUAL similarity to the reference image.
+- notes: one-line observation.
 
-3. hallucinationDetected (bool): true if image2 contains any LARGE furniture piece that has no
-   visually matching product reference (image3+). Large means: sofa, sectional, bed, dining table,
-   large cabinet, wardrobe, TV stand, media console, desk, bookcase, sideboard.
-   Do NOT set true for: small accessories, cushions, books, small plants, candles, trays.
-   Style variations of a referenced item (different colour/fabric) do NOT count as hallucination.
-   A TV stand or cabinet that does not match any reference image IS hallucination.
+━━━ 3. hallucinationDetected (bool) ━━━
+true ONLY if image2 contains a LARGE furniture piece with NO visually matching reference.
+Large items: sofa, sectional, bed, dining table, large cabinet, wardrobe, TV stand, media console, desk, bookcase, sideboard.
+Do NOT set true for: small accessories, cushions, books, small plants, candles, trays.
+Style variations of a referenced item do NOT count. A TV stand/cabinet with no reference IS hallucination.
 
-4. inventedItems (string[]): List ALL furniture and décor items visible in image2 that do NOT have
-   a clear visual match in any of the product references (image3+).
-   — Include BOTH large pieces (TV stand, extra cabinet, extra chair) AND smaller additions (vase,
-     cushion set, plant, decorative object) that were not in the references.
-   — An item is "invented" if it is not visually similar to any reference — even if the category
-     is represented, a visually distinct piece in that category counts as invented.
-   — Do NOT include items that are clearly visible in a reference image.
-   This list is used to show the user what the AI added beyond the catalogue — be thorough.
+━━━ 4. inventedItems (string[]) ━━━
+List ALL furniture and décor visible in image2 with NO clear visual match in any reference image.
+Include both large pieces AND small additions (vase, cushion set, plant, decorative object).
+An item is invented if it is not visually similar to any reference — even if the category is represented.
 
-5. inventedItemsBboxes: For EACH item in inventedItems, provide a bounding box in image2.
-   Format: [y_min, x_min, y_max, x_max] with values normalised 0–1000.
-   Example: [120, 340, 450, 780]
-   Every entry in inventedItems MUST have a corresponding bbox entry.
+━━━ 5. inventedItemsBboxes ━━━
+For EACH item in inventedItems, provide a bounding box in image2.
+Format: [y_min, x_min, y_max, x_max] normalised 0–1000.
+Every inventedItems entry MUST have a corresponding bbox entry.
 
-6. notes (string[]): Up to 3 short reviewer notes.
+━━━ 6. scaleIssues (string[]) ━━━
+List any furniture items in image2 that appear at an unrealistic scale, e.g.:
+- A bench or ottoman that appears as large as a sofa or bed
+- A lamp that appears wider or taller than the sofa
+- Any item that looks disproportionately large relative to the door frame or room
 
-Return ONLY this exact JSON shape — no markdown, no extra text:
+━━━ 7. notes (string[]) ━━━
+Up to 3 short reviewer notes on overall quality.
+
+Return ONLY this exact JSON — no markdown, no extra text:
 {
   "geometryScore": 0,
   "hallucinationDetected": false,
@@ -479,6 +513,7 @@ Return ONLY this exact JSON shape — no markdown, no extra text:
   "inventedItemsBboxes": [
     { "name": "extra lamp", "bbox": [120, 340, 450, 780] }
   ],
+  "scaleIssues": [],
   "notes": [],
   "products": [
     {
@@ -618,6 +653,7 @@ function mergeValidationScores(geminiValidation: any, backgroundGeometryScore: n
   // invented without a catalogue reference) hard-fails the validation.
   const hallucinationDetected = Boolean(geminiValidation?.hallucinationDetected);
   const notes: string[] = Array.isArray(geminiValidation?.notes) ? geminiValidation.notes : [];
+  const scaleIssues: string[] = Array.isArray(geminiValidation?.scaleIssues) ? geminiValidation.scaleIssues : [];
 
   return {
     accepted:
@@ -629,6 +665,7 @@ function mergeValidationScores(geminiValidation: any, backgroundGeometryScore: n
     hallucinationDetected,
     inventedItems,
     inventedItemsBboxes,
+    scaleIssues,
     notes,
     products,
   };
