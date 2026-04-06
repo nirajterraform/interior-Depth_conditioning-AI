@@ -15,7 +15,7 @@ const ai = new GoogleGenAI({
 // Was 93/72 — both were unrealistically strict, causing near-constant rejection.
 const MIN_GEOMETRY_SCORE = 88;
 const MIN_CATALOGUE_AVG = 82;
-const MAX_ATTEMPTS = 1;
+const MAX_ATTEMPTS = 2;
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
 
@@ -820,9 +820,13 @@ export async function POST(req: NextRequest) {
 
       const generatedImage = await falUrlToDataUri(generatedUrl);
 
-      // Gemini-only validation (rembg background score removed to save ~15s per attempt)
-      const geminiValidation = await validateWithGemini({ originalImage, generatedImage, roomType, theme, products });
-      const validation = mergeValidationScores(geminiValidation, 0);
+      // Run rembg pixel-level geometry check and Gemini semantic validation in parallel
+      const [backgroundGeometryScore, geminiValidation] = await Promise.all([
+        buildBackgroundMaskScore(originalImage, generatedImage),
+        validateWithGemini({ originalImage, generatedImage, roomType, theme, products }),
+      ]);
+      const validation = mergeValidationScores(geminiValidation, backgroundGeometryScore);
+      console.log(`Attempt ${attempt}: geometry=${validation.geometryScore} (rembg=${backgroundGeometryScore}) catalogue=${validation.catalogueAverageScore} hallucination=${validation.hallucinationDetected}`);
 
       // Crop invented items from this attempt's generated image
       const inventedItemCrops = await cropInventedItems(
@@ -842,7 +846,7 @@ export async function POST(req: NextRequest) {
           debug: {
             model: "fal-ai/flux-2-pro/edit",
             generatedUrl,
-            backgroundGeometryScore: 0,
+            backgroundGeometryScore,
             attemptsUsed: attempt,
           },
         });
@@ -865,7 +869,7 @@ export async function POST(req: NextRequest) {
           debug: {
             model: "fal-ai/flux-2-pro/edit",
             generatedUrl,
-            backgroundGeometryScore: 0,
+            backgroundGeometryScore,
             attemptsUsed: attempt,
           },
         };
