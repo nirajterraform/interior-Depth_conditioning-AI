@@ -608,6 +608,17 @@ export default function Home() {
             </button>
           </div>
 
+          {/* Lamp-without-table hint */}
+          {selectedProducts.some(p => (p.normalized_category || p.category || '').toLowerCase().includes('lamp')) &&
+           !selectedProducts.some(p => { const c = (p.normalized_category || p.category || '').toLowerCase(); return c.includes('table') || c.includes('desk') || c.includes('console') || c.includes('nightstand') || c.includes('shelf'); }) && (
+            <div style={{
+              marginTop: 12, padding: "10px 14px", borderRadius: 12,
+              background: "#fffbeb", border: "1px solid #fcd34d", color: "#92400e", fontSize: 13,
+            }}>
+              Tip: Add a side table to your selection for the best lamp placement result.
+            </div>
+          )}
+
           {/* Error / warning banner */}
           {error && (
             <div style={{

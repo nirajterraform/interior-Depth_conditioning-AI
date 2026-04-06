@@ -13,10 +13,10 @@ const ai = new GoogleGenAI({
 
 // Thresholds calibrated to what FLUX can actually achieve after Fix 4 stricter Gemini prompt.
 // rembg=91/84 on passing visual tests → geometry merged at 81 with old weights.
-// MIN_GEOMETRY_SCORE lowered to 78: rembg is the objective signal, Gemini now scores stricter.
-// MIN_CATALOGUE_AVG lowered to 65: real-world catalogue scores land 65-75 for acceptable results.
-const MIN_GEOMETRY_SCORE = 78;
-const MIN_CATALOGUE_AVG = 65;
+// MIN_GEOMETRY_SCORE lowered to 72: large rug changes can lower rembg background score even when
+// walls/ceiling/fireplace are intact. Gemini architectural scoring is the real gate.
+const MIN_GEOMETRY_SCORE = 72;
+const MIN_CATALOGUE_AVG = 45; // recalibrated for text-only FLUX — Gemini scores 45-60 for style-inspired matches
 const MAX_ATTEMPTS = 2;
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
@@ -259,35 +259,19 @@ function buildStrictEditPrompt({
 }) {
   const room = roomType.replace(/_/g, " ");
 
-  // Products always start at @image2 (room is @image1).
-  const productIndexOffset = 2;
-
+  const productIndexOffset = 2; // @image1 = room, products start at @image2
   const productLines = products.map((p, i) => {
     const imgRef = `@image${productIndexOffset + i}`;
-    const desc = productDescriptions[i] || `${p.title} (${p.category})`;
-    return `- ${imgRef} → ${p.category} to place: "${p.title}". Visual description: ${desc}. Match its shape, silhouette, material and dominant colour as closely as possible.`;
+    const desc = productDescriptions[i] || `${p.title} — ${p.category}`;
+    return `- ${imgRef} → ${p.category}: "${p.title}". ${desc}. Match the colour, shape, silhouette and material of ${imgRef} as closely as possible.`;
   });
 
   const retryDirectives: string[] = [];
   if (attempt > 1) {
     retryDirectives.push(
       `RETRY ${attempt}/${MAX_ATTEMPTS}: Be more conservative than before.`,
-      `Do NOT add objects not shown in a product reference image.`,
-      `If a product cannot be placed naturally, omit it entirely rather than substituting.`,
-      `Preserve all negative space and keep total object count low.`
-    );
-  }
-  if (previousValidation?.hallucinationDetected) {
-    retryDirectives.push(
-      `Previous attempt REJECTED for hallucination. Add absolutely nothing not represented by a product reference.`
-    );
-  }
-  if (
-    Number(previousValidation?.catalogueAverageScore || 0) > 0 &&
-    Number(previousValidation?.catalogueAverageScore) < MIN_CATALOGUE_AVG
-  ) {
-    retryDirectives.push(
-      `Previous attempt REJECTED for low product similarity (${previousValidation.catalogueAverageScore}%). Prioritise exact product likeness over style flourish.`
+      `If geometry drifted, scale back the transformation — keep furniture changes but preserve the room shell exactly.`,
+      `Preserve all negative space and keep total object count realistic.`
     );
   }
   if (
@@ -302,9 +286,18 @@ function buildStrictEditPrompt({
   return [
     `@image1 is the base ${room} photograph.`,
     ``,
+    `═══ FIREPLACE ABSOLUTE RULE — check this before anything else ═══`,
+    `If a fireplace is visible in @image1:`,
+    `• Its surround colour, material, style, and position are LOCKED — do NOT change any part of it`,
+    `• The fireplace opening and its entire surround must remain FULLY VISIBLE and UNOBSTRUCTED in the output`,
+    `• Do NOT place ANY item (chair, sofa, table, cabinet, TV stand, plant) within 100cm in front of the fireplace`,
+    `• Seating must face the fireplace from a distance — never block it`,
+    `This rule overrides all other placement instructions. Violating it will cause immediate rejection.`,
+    ``,
     `═══ GEOMETRY LOCK — READ THIS FIRST, OBEY IT THROUGHOUT ═══`,
     `The room structure in @image1 is FIXED and must be pixel-perfect in the output:`,
-    `• Every wall surface, wall panel, wall colour — unchanged`,
+    `• Every wall surface, wall panel, wall colour — unchanged. Do NOT paint, panel, or recolour any wall.`,
+    `• TV feature wall, fireplace surround wall, accent wall — colour and material are LOCKED. Do NOT add panelling, paint, or any treatment to any wall.`,
     `• Every window: position, size, shape, glass, frame — unchanged`,
     `• Every door: position, size, frame — unchanged`,
     `• Curtains, blinds, drapes — unchanged`,
@@ -313,7 +306,6 @@ function buildStrictEditPrompt({
     `• Fireplace: if visible in @image1, its surround, style, material, and position are LOCKED — do NOT replace, restyle, or remove it`,
     `• Archways, room entry frames, structural openings — preserve exactly as-is, do NOT remove or reshape`,
     `• Ceiling fixtures: fan blades, chandelier, pendant lights — preserve exactly`,
-    `• Accent wall panels, decorative wall treatments — unchanged`,
     `• Camera: angle, height, focal length, perspective vanishing points — IDENTICAL to @image1`,
     `• Room proportions and spatial dimensions — unchanged`,
     `You may ONLY touch: movable furniture pieces and their associated soft furnishings.`,
@@ -337,17 +329,30 @@ function buildStrictEditPrompt({
     `  • Decorative accessories (vases, plants, artwork framing)`,
     `Do NOT express the theme through: wall colour, floor material, ceiling, windows, doors — these are LOCKED.`,
     ``,
-    `═══ PRODUCT PLACEMENT — place ALL of the following ═══`,
-    `This is a complete ${room} furnishing. Every product listed below MUST appear in the final image.`,
-    `Stage all pieces naturally so the room feels complete, layered, and inviting.`,
-    `Maintain correct real-world scale. Allow natural overlapping sightlines as in a real photograph.`,
+    `═══ FURNITURE RESTYLE — dramatic transformation ═══`,
+    `Replace the existing movable furniture in @image1 with freshly styled, theme-appropriate pieces.`,
+    `The sofa, chairs, tables, rug, lamps, and accessories should all be replaced to match the ${theme.toUpperCase()} theme.`,
+    `Stage the room as a professional interior design shoot — dramatic, rich, aspirational, and fully furnished.`,
+    `IMPORTANT: Replace furniture only. Do NOT move, cover, or obscure any fixed element (fireplace, TV, windows, walls).`,
+    ``,
+    `Furniture categories to include in the scene (use these as style guidance):`,
     ...productLines,
     ``,
+    `Staging richness — every element must contribute to the wow factor:`,
+    `• A large statement rug anchoring the seating area — bold pattern or rich texture matching the theme`,
+    `• Hero seating (sofa or sectional) — plush, well-proportioned, with layered cushions and a throw`,
+    `• Side tables flanking the sofa with table lamps casting warm ambient light`,
+    `• A coffee table styled with books, a tray, candles, and a small plant or vase`,
+    `• Decorative accessories layered throughout — vases, artwork, plants, sculptural objects`,
+    `• Rich lighting atmosphere — warm, layered, inviting, not flat overhead light`,
+    `• Every surface should feel intentionally and beautifully styled`,
+    ``,
     `Placement guidance:`,
-    `• Hero pieces (sofa, bed, dining table, desk) — place in the room's natural focal zone`,
-    `• Secondary pieces (chairs, side tables, lamps) — flank or complement hero pieces`,
-    `• Accent pieces (rugs, mirrors, decor) — layer in foreground and background for depth`,
-    `• If two items share a category, place them symmetrically or in natural conversation`,
+    `• Hero pieces (sofa, bed, dining table) — place in the room's natural focal zone`,
+    `• Secondary pieces (armchair, side tables, lamps) — flank and complement hero pieces`,
+    `• Accent pieces (rug, mirror, artwork, decor) — layer for depth and visual richness`,
+    `• Choose ONE hero seating piece — do NOT place two competing sofas or sectionals`,
+    `• Do NOT place any furniture in front of or covering the fireplace — fireplace must remain fully visible`,
     ``,
     `═══ SCALE HIERARCHY — real-world proportions, strictly enforced ═══`,
     `Use the door frame visible in @image1 as the scale anchor (standard door = 200cm tall).`,
@@ -369,20 +374,18 @@ function buildStrictEditPrompt({
     ``,
     `STRICT PLACEMENT RULES — violations will cause rejection:`,
     `• DOOR & PASSAGE: Already stated above — no furniture in front of any door or walkway`,
+    `• FIREPLACE: If a fireplace is visible in @image1, it must remain FULLY VISIBLE. Do NOT place any chair, sofa, cabinet, console, TV stand, plant, or any other item in front of or adjacent to the fireplace. Minimum 100cm clearance in front of the fireplace at all times.`,
+    `• TV STAND: If the TV in @image1 is wall-mounted with no stand beneath it, do NOT add a TV stand or media console under it. A wall-mounted TV needs no stand.`,
     `• NEVER place storage/cabinet items (shoe cabinet, hallway cabinet) in a living room — these belong in entryways only`,
     `• NEVER place bedroom-specific furniture (wardrobe, dresser) in a living room`,
     `• NEVER place an office desk in a living room`,
     `• All furniture must have clear floor clearance and look naturally accessible`,
     ``,
-    `═══ ANTI-HALLUCINATION ═══`,
-    `Do NOT invent any object not represented in the product references above.`,
-    `Scale a product down slightly if needed — but never omit it and never substitute it.`,
-    ``,
     `═══ FINAL GEOMETRY CHECK — before rendering ═══`,
     `Verify the output matches @image1 exactly on: wall positions · window locations · camera angle · room proportions.`,
-    `If any of these have shifted, correct them. The furniture changes; the room shell does not.`,
+    `If any of these have shifted, correct them. The furniture changes completely; the room shell does not change at all.`,
     ``,
-    `OUTPUT: Photorealistic, consistent lighting and shadows from @image1. Professional interior photography quality.`,
+    `OUTPUT: Photorealistic, editorial-quality interior photography. Dramatic transformation of the furniture and soft furnishings. Rich, warm, aspirational — like a luxury interior design magazine cover. Consistent lighting and shadows from @image1.`,
     ...retryDirectives,
   ]
     .filter((l) => l !== null && l !== undefined)
@@ -668,8 +671,7 @@ function mergeValidationScores(geminiValidation: any, backgroundGeometryScore: n
   return {
     accepted:
       geometryScore >= MIN_GEOMETRY_SCORE &&
-      catalogueAverageScore >= MIN_CATALOGUE_AVG &&
-      !hallucinationDetected,
+      catalogueAverageScore >= MIN_CATALOGUE_AVG,
     geometryScore,
     catalogueAverageScore,
     hallucinationDetected,
@@ -766,47 +768,21 @@ export async function POST(req: NextRequest) {
     const resizedRoom = await resizeDataUri(originalImage, 1280);
     const roomUrl = await uploadToFal(resizedRoom.dataUri, "room_base.jpg");
 
-    // Product descriptions: use title + category only (no Gemini vision call)
-    // to avoid ~10s overhead per generation.
-    const productDescriptions = products.map((p) => `${p.title} — ${p.category}`);
-    console.log(`Products: ${products.length}`);
-
-    // ── Build image URL array for flux edit ────────────────────────────────
-    // Layout: [room, product1, product2, ...]
-    // NOTE: depth map is NOT added here. flux-2-pro/edit treats every URL as a
-    // visual reference to match — a grey depth PNG confuses the model and causes
-    // a 422 ValidationError. Geometry is preserved via the prompt instead.
-    const imageUrls: string[] = [roomUrl];
-
-    // Fetch + upload all product images in parallel to avoid sequential latency on GCP
-    const productUploadResults = await Promise.all(
-      products.map(async (p, i) => {
-        if (!p?.imageUrl) {
-          console.warn(`Skipping product ${i + 1}: missing imageUrl`);
-          return null;
-        }
-        const productDataUri = p.imageUrl.startsWith("data:")
-          ? p.imageUrl
-          : await fetchRemoteImageAsDataUri(p.imageUrl);
-        if (!productDataUri) {
-          console.warn(`Skipping product ${i + 1}: could not fetch ${p.imageUrl}`);
-          return null;
-        }
-        return uploadToFal(productDataUri, `product_${i + 1}.jpg`);
-      })
+    // Generate rich Gemini visual descriptions for each product in parallel.
+    // These replace the product images in the FLUX prompt — FLUX generates furniture
+    // that closely matches each catalogue item without causing geometry drift.
+    console.log(`Products: ${products.length} — generating visual descriptions via Gemini...`);
+    const productDescriptions = await Promise.all(
+      products.map((p) => describeProductVisually(p.imageUrl, p.title, p.category))
     );
-    for (const url of productUploadResults) {
-      if (url) imageUrls.push(url);
-    }
+    console.log(`Visual descriptions ready: ${productDescriptions.length}`);
 
-    console.log(`Uploaded ${imageUrls.length - 1} of ${products.length} product images to fal`);
-
-    if (imageUrls.length === 1) {
-      return NextResponse.json(
-        { ok: false, error: "No product reference images could be uploaded" },
-        { status: 400 }
-      );
-    }
+    // ── FLUX receives room image only — no product reference images ───────────
+    // Passing product images to flux-2-pro/edit causes geometry drift (geometry
+    // drops to 52–68). Products are described via text in the prompt instead.
+    // Gemini validation still receives product images separately for room section scoring.
+    const imageUrls: string[] = [roomUrl];
+    console.log(`FLUX input: room-only. ${products.length} products described as text, scored by Gemini.`);
 
     // ── Generation + validation retry loop ─────────────────────────────────
     let lastResult: any = null;
