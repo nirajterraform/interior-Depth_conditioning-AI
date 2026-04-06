@@ -11,10 +11,12 @@ const ai = new GoogleGenAI({
   location: process.env.GOOGLE_CLOUD_LOCATION || "global",
 });
 
-// FIX: Thresholds calibrated to what depth-conditioned FLUX can actually achieve.
-// Was 93/72 — both were unrealistically strict, causing near-constant rejection.
-const MIN_GEOMETRY_SCORE = 88;
-const MIN_CATALOGUE_AVG = 82;
+// Thresholds calibrated to what FLUX can actually achieve after Fix 4 stricter Gemini prompt.
+// rembg=91/84 on passing visual tests → geometry merged at 81 with old weights.
+// MIN_GEOMETRY_SCORE lowered to 78: rembg is the objective signal, Gemini now scores stricter.
+// MIN_CATALOGUE_AVG lowered to 65: real-world catalogue scores land 65-75 for acceptable results.
+const MIN_GEOMETRY_SCORE = 78;
+const MIN_CATALOGUE_AVG = 65;
 const MAX_ATTEMPTS = 2;
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
@@ -626,9 +628,10 @@ async function cropInventedItems(
 // ─── Score merging ────────────────────────────────────────────────────────────
 function mergeValidationScores(geminiValidation: any, backgroundGeometryScore: number) {
   const geminiGeometry = Number(geminiValidation?.geometryScore || 0);
+  // rembg is objective pixel measurement — weight it more heavily than Gemini's subjective score
   const geometryScore =
     backgroundGeometryScore > 0
-      ? Math.round(geminiGeometry * 0.6 + backgroundGeometryScore * 0.4)
+      ? Math.round(geminiGeometry * 0.35 + backgroundGeometryScore * 0.65)
       : geminiGeometry;
 
   const products = Array.isArray(geminiValidation?.products) ? geminiValidation.products : [];
