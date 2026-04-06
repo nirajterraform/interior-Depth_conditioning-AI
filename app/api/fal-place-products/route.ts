@@ -569,7 +569,14 @@ Context: roomType=${roomType}; theme=${theme}.
   const cleaned = text.replace(/```json|```/g, "").trim();
   const match = cleaned.match(/\{[\s\S]*\}/);
   if (!match) throw new Error("Could not parse validation JSON from Gemini.");
-  return JSON.parse(match[0]);
+  // Gemini occasionally emits literal newline/tab characters inside JSON string values
+  // which makes JSON.parse throw. Sanitize by replacing control characters with spaces.
+  try {
+    return JSON.parse(match[0]);
+  } catch {
+    const sanitized = match[0].replace(/[\n\r\t]/g, " ");
+    return JSON.parse(sanitized);
+  }
 }
 
 // ─── Step 6: Crop invented items from generated image ─────────────────────────
