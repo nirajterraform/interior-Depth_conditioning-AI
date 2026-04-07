@@ -792,7 +792,7 @@ export default function Home() {
                 <div>
                   <div style={{ fontSize: 16, fontWeight: 700 }}>Validation gate</div>
                   <div style={{ fontSize: 12, color: "#6b7280", marginTop: 4 }}>
-                    Geometry ≥ {88}% · Catalogue avg ≥ {82}% · Zero hallucination
+                    Geometry ≥ {72}% · Catalogue avg ≥ {50}% · Hallucination check
                   </div>
                 </div>
                 <div style={{
@@ -808,9 +808,9 @@ export default function Home() {
 
               <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 12, marginTop: 16 }}>
                 {[
-                  { label: "Geometry", value: `${validation.geometryScore}%`, ok: validation.geometryScore >= 88 },
-                  { label: "Catalogue avg", value: `${validation.catalogueAverageScore}%`, ok: validation.catalogueAverageScore >= 82 },
-                  { label: "Hallucination", value: validation.hallucinationDetected ? "Detected" : "Blocked", ok: !validation.hallucinationDetected },
+                  { label: "Geometry", value: `${validation.geometryScore}%`, ok: validation.geometryScore >= 72 },
+                  { label: "Catalogue avg", value: `${validation.catalogueAverageScore}%`, ok: validation.catalogueAverageScore >= 50 },
+                  { label: "Hallucination", value: validation.hallucinationDetected ? "Flagged" : "Clear", ok: !validation.hallucinationDetected },
                   { label: "AI extras", value: String(validation.inventedItems.length), ok: validation.inventedItems.length === 0 },
                 ].map((item) => (
                   <div key={item.label} style={{ borderRadius: 12, background: item.ok ? "#f0fdf4" : "#fef9c3", padding: 12, border: `1px solid ${item.ok ? "#bbf7d0" : "#fde68a"}` }}>

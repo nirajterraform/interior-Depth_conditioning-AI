@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Interior AI — Project Summary</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f4f6f9;
+      color: #1a1a2e;
+      line-height: 1.6;
+    }
+
+    /* ── Header ── */
+    header {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%);
+      color: white;
+      padding: 48px 40px 40px;
+    }
+    header h1 { font-size: 2rem; font-weight: 700; letter-spacing: -0.5px; }
+    header p  { margin-top: 8px; opacity: 0.7; font-size: 0.95rem; }
+    .badge-row { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
+    .badge {
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 20px;
+      padding: 4px 14px;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+
+    /* ── Layout ── */
+    main { max-width: 1100px; margin: 0 auto; padding: 40px 24px 80px; }
+    section { margin-bottom: 48px; }
+    h2 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #0f3460;
+      border-left: 4px solid #0f3460;
+      padding-left: 12px;
+      margin-bottom: 20px;
+    }
+    h3 { font-size: 1rem; font-weight: 700; margin-bottom: 8px; color: #1a1a2e; }
+
+    /* ── Cards ── */
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+      margin-bottom: 16px;
+    }
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 16px;
+    }
+
+    /* ── Status chips ── */
+    .chip {
+      display: inline-block;
+      border-radius: 20px;
+      padding: 3px 12px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+    .chip-current   { background: #d1fae5; color: #065f46; }
+    .chip-abandoned { background: #fee2e2; color: #991b1b; }
+    .chip-notbuilt  { background: #fef3c7; color: #92400e; }
+
+    /* ── Tables ── */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+    th {
+      background: #f0f4ff;
+      color: #0f3460;
+      font-weight: 700;
+      padding: 10px 14px;
+      text-align: left;
+      border-bottom: 2px solid #d0d9f0;
+    }
+    td { padding: 10px 14px; border-bottom: 1px solid #eef0f5; vertical-align: top; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #f8f9ff; }
+    .wow-stars { color: #f59e0b; letter-spacing: 1px; }
+
+    /* ── Metric boxes ── */
+    .metric-row { display: flex; gap: 24px; flex-wrap: wrap; margin-top: 12px; }
+    .metric {
+      flex: 1; min-width: 140px;
+      background: #f8f9ff;
+      border-radius: 10px;
+      padding: 14px 18px;
+      text-align: center;
+    }
+    .metric .label { font-size: 0.75rem; color: #6b7280; font-weight: 600; margin-bottom: 6px; }
+    .metric .value { font-size: 1.6rem; font-weight: 800; color: #0f3460; }
+    .metric .sub   { font-size: 0.7rem; color: #9ca3af; margin-top: 2px; }
+
+    /* ── Flow diagram ── */
+    .flow { display: flex; flex-direction: column; gap: 0; }
+    .flow-step { display: flex; align-items: flex-start; gap: 16px; }
+    .flow-line { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; }
+    .flow-dot {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      background: #0f3460;
+      color: white;
+      font-weight: 700; font-size: 0.85rem;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .flow-connector { width: 2px; flex: 1; background: #d0d9f0; min-height: 24px; margin: 4px 0; }
+    .flow-body {
+      background: white; border-radius: 10px;
+      padding: 16px 20px; margin-bottom: 8px; flex: 1;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+    .flow-body h4 { font-size: 0.9rem; font-weight: 700; color: #0f3460; margin-bottom: 4px; }
+    .flow-body p  { font-size: 0.82rem; color: #4b5563; }
+    .flow-body ul { font-size: 0.82rem; color: #4b5563; padding-left: 16px; margin-top: 4px; }
+
+    /* ── Constants grid ── */
+    .const-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
+    .const-card {
+      background: white; border-radius: 10px;
+      padding: 16px; text-align: center;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+    .const-card .cname { font-size: 0.72rem; color: #6b7280; font-weight: 600; margin-bottom: 6px; }
+    .const-card .cval  { font-size: 1.4rem; font-weight: 800; color: #0f3460; }
+    .const-card .cdesc { font-size: 0.7rem; color: #9ca3af; margin-top: 4px; }
+
+    /* ── Checklist ── */
+    .checklist { list-style: none; padding: 0; }
+    .checklist li {
+      background: white; border-radius: 8px;
+      padding: 12px 18px; margin-bottom: 10px;
+      border-left: 4px solid #0f3460;
+      font-size: 0.88rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      display: flex; align-items: flex-start; gap: 10px;
+    }
+    .checklist li .num {
+      background: #0f3460; color: white;
+      border-radius: 50%; width: 22px; height: 22px;
+      font-size: 0.72rem; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; margin-top: 1px;
+    }
+
+    /* ── Utility ── */
+    code {
+      background: #f0f4ff; border-radius: 4px;
+      padding: 1px 7px; font-size: 0.82rem; color: #0f3460;
+      font-family: "SF Mono", "Fira Code", monospace;
+    }
+    .text-muted { color: #6b7280; font-size: 0.85rem; }
+    .note {
+      background: #fffbeb; border: 1px solid #fde68a;
+      border-radius: 8px; padding: 12px 16px;
+      font-size: 0.83rem; color: #92400e; margin-top: 12px;
+    }
+    .fix-row td:first-child { font-weight: 600; color: #0f3460; }
+    .fix-row td:nth-child(2) { color: #6b7280; }
+    .fix-row td:nth-child(3) { color: #059669; font-weight: 600; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Interior AI — Project Summary</h1>
+  <p>Architecture decisions, approaches tried, current model, and what needs testing next.</p>
+  <div class="badge-row">
+    <span class="badge">Next.js</span>
+    <span class="badge">fal-ai / FLUX 2 Pro Edit</span>
+    <span class="badge">Gemini 2.5 Flash</span>
+    <span class="badge">Vertex AI</span>
+    <span class="badge">rembg</span>
+    <span class="badge">Supabase Vector</span>
+    <span class="badge">Shopify Catalogue</span>
+  </div>
+</header>
+
+<main>
+
+  <!-- 1. Project Requirement -->
+  <section>
+    <h2>1. Project Requirement</h2>
+    <div class="card">
+      <p>Take a user's <strong>real room photo</strong> and a set of <strong>products selected from a Shopify catalogue</strong> → generate a photorealistic styled version of that same room with those products placed in it.</p>
+      <div class="metric-row">
+        <div class="metric">
+          <div class="label">Geometry target</div>
+          <div class="value">≥ 80%</div>
+          <div class="sub">Walls, windows, floor, ceiling unchanged</div>
+        </div>
+        <div class="metric">
+          <div class="label">Catalogue target</div>
+          <div class="value">70–80%</div>
+          <div class="sub">Products match selections</div>
+        </div>
+        <div class="metric">
+          <div class="label">Generation time</div>
+          <div class="value">30–40s</div>
+          <div class="sub">Target per run</div>
+        </div>
+        <div class="metric">
+          <div class="label">Max attempts</div>
+          <div class="value">3</div>
+          <div class="sub">Before BEST EFFORT</div>
+        </div>
+      </div>
+      <div style="margin-top: 20px;">
+        <h3>Room types supported</h3>
+        <p class="text-muted" style="margin-top: 6px;">
+          Living Room &nbsp;·&nbsp; Bedroom &nbsp;·&nbsp; Dining Room &nbsp;·&nbsp; Kitchen &nbsp;·&nbsp;
+          Office &nbsp;·&nbsp; Loft &nbsp;·&nbsp; Hallway &nbsp;·&nbsp; Kids Room &nbsp;·&nbsp;
+          Frontyard &nbsp;·&nbsp; Backyard
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2. Tech Stack -->
+  <section>
+    <h2>2. Tech Stack</h2>
+    <div class="table-wrap card" style="padding: 0; overflow: hidden;">
+      <table>
+        <thead>
+          <tr><th>Component</th><th>Tool</th><th>Purpose</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Image editor</td><td><code>fal-ai/flux-2-pro/edit</code></td><td>Generates and edits the room</td></tr>
+          <tr><td>Geometry validation</td><td>Gemini 2.5 Flash + rembg</td><td>Checks room structure was preserved</td></tr>
+          <tr><td>Catalogue validation</td><td>Gemini 2.5 Flash</td><td>Checks products appear correctly in output</td></tr>
+          <tr><td>Product descriptions</td><td>Gemini 2.5 Flash Vision</td><td>Writes visual text description of each product image</td></tr>
+          <tr><td>Catalogue retrieval</td><td>Supabase vector search</td><td>Finds matching products for room + theme</td></tr>
+          <tr><td>Background diff</td><td>rembg (pixel comparison)</td><td>Objective measure of background pixel change</td></tr>
+          <tr><td>Depth conditioning</td><td><code>fal-ai/imageutils/depth</code></td><td>Extracts depth map to help FLUX preserve 3D structure</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 3. Approaches Tried -->
+  <section>
+    <h2>3. Approaches Tried</h2>
+
+    <div class="card">
+      <span class="chip chip-abandoned">Abandoned</span>
+      <h3>Approach 1 — Multi-image FLUX Pass 1</h3>
+      <p>Send the room photo + all product images simultaneously to FLUX. Prompt references each product as <code>@image2</code>, <code>@image3</code>, etc.</p>
+      <p style="margin-top: 8px;"><strong>Result:</strong> Geometry dropped to <strong>52–68%</strong>. FLUX tried to reconcile all visual references at once and reinterpreted the room structure.</p>
+      <p style="margin-top: 6px;"><strong>Why abandoned:</strong> Geometry preservation is more critical than product fidelity. Room architecture breaking kills the end product experience.</p>
+    </div>
+
+    <div class="card">
+      <span class="chip chip-current">Current — Pass 1</span>
+      <h3>Approach 2 — Text-only FLUX Pass 1</h3>
+      <p>Gemini Vision writes a 1–2 sentence visual description of each product (colour, material, silhouette, style). FLUX receives only the room photo + text descriptions — no product images in Pass 1.</p>
+      <p style="margin-top: 8px;"><strong>Result:</strong> Geometry <strong>80–88%</strong>, catalogue <strong>70–90%</strong> style match.</p>
+      <p style="margin-top: 6px;"><strong>Trade-off:</strong> Products in the output are AI-generated furniture <em>inspired by</em> the catalogue items — not pixel-exact product images.</p>
+    </div>
+
+    <div class="card">
+      <span class="chip chip-abandoned">Abandoned</span>
+      <h3>Approach 3 — 3-product Targeted Edit Loop (Pass 2)</h3>
+      <p>After Pass 1, run 3 sequential targeted swaps — one per lowest-scoring product — using the actual product photo as FLUX reference. Adopt if the <em>total catalogue average</em> improves.</p>
+      <p style="margin-top: 8px;"><strong>Problem:</strong> Gemini scoring noise on the 2 unedited products dragged the catalogue average down even when the edited product genuinely improved. Result was almost always discarded.</p>
+      <p style="margin-top: 6px;"><strong>Why abandoned:</strong> 3 edits wasted ~3 min and were consistently rejected due to the broad adoption gate.</p>
+    </div>
+
+    <div class="card">
+      <span class="chip chip-current">Current — Pass 2</span>
+      <h3>Approach 4 — Single Targeted Edit (Pass 2)</h3>
+      <p>After Pass 1, if catalogue avg &lt; 65% AND any product scored &lt; 60%, run exactly <strong>1 targeted swap</strong> for the worst-scoring product using the actual product photo as FLUX reference. Adopt only if <em>that specific product's score</em> improves.</p>
+      <p style="margin-top: 8px;"><strong>Geometry gate:</strong> Targeted edit is discarded if geometry drops more than 8 pts from Pass 1.</p>
+      <div class="note">Still needs validation across multiple test runs — not yet confirmed reliable.</div>
+    </div>
+
+    <div class="card">
+      <span class="chip chip-notbuilt">Not Built</span>
+      <h3>Approach 5 — True Compositing</h3>
+      <p>Segment furniture zones → remove background from each product image → warp to match room perspective and scale → AI-match lighting and shadows → composite into scene.</p>
+      <p style="margin-top: 8px;"><strong>WOW factor:</strong> Highest — customer sees their <em>exact</em> product in their actual room.</p>
+      <p style="margin-top: 6px;"><strong>Why not built:</strong> Requires segmentation model + depth estimation + shadow matching AI. Completely different pipeline architecture.</p>
+    </div>
+  </section>
+
+  <!-- 4. WOW Factor Comparison -->
+  <section>
+    <h2>4. Approach Comparison &amp; WOW Factor</h2>
+    <div class="table-wrap card" style="padding: 0; overflow: hidden;">
+      <table>
+        <thead>
+          <tr><th>Approach</th><th>Geometry</th><th>Product Fidelity</th><th>WOW Factor</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Text-only Pass 1</td>
+            <td>✅ 80–88%</td>
+            <td>⚠️ 70–90% style match</td>
+            <td><span class="wow-stars">★★★</span>&nbsp; Room transforms well, furniture feels right but generic</td>
+            <td><span class="chip chip-current" style="margin:0">Current</span></td>
+          </tr>
+          <tr>
+            <td>Multi-image Pass 1</td>
+            <td>❌ 52–68%</td>
+            <td>✅ Better match</td>
+            <td><span class="wow-stars">★★</span>&nbsp; Products closer but room structure breaks — kills the effect</td>
+            <td><span class="chip chip-abandoned" style="margin:0">Abandoned</span></td>
+          </tr>
+          <tr>
+            <td>Pass 2 single targeted swap</td>
+            <td>✅ Preserved</td>
+            <td>✅ Close match</td>
+            <td><span class="wow-stars">★★★★</span>&nbsp; One specific product looks very close to catalogue — noticeably more real</td>
+            <td><span class="chip chip-current" style="margin:0">Current</span></td>
+          </tr>
+          <tr>
+            <td>True compositing</td>
+            <td>✅ Perfect</td>
+            <td>✅ Exact product</td>
+            <td><span class="wow-stars">★★★★★</span>&nbsp; "That's literally my sofa in my room" — highest impact</td>
+            <td><span class="chip chip-notbuilt" style="margin:0">Not Built</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 5. Current Architecture Flow -->
+  <section>
+    <h2>5. Current Architecture Flow</h2>
+    <div class="flow">
+
+      <div class="flow-step">
+        <div class="flow-line">
+          <div class="flow-dot">1</div>
+          <div class="flow-connector"></div>
+        </div>
+        <div class="flow-body">
+          <h4>Room type detection</h4>
+          <p>Gemini Vision analyses the uploaded room photo and returns <code>roomType</code> (living_room, bedroom, etc.) and <code>theme</code>.</p>
+        </div>
+      </div>
+
+      <div class="flow-step">
+        <div class="flow-line">
+          <div class="flow-dot">2</div>
+          <div class="flow-connector"></div>
+        </div>
+        <div class="flow-body">
+          <h4>Catalogue retrieval</h4>
+          <p>Supabase vector search retrieves products matching the room + theme. Products are scored, filtered by room-wrong-terms penalty, deduplicated by <code>normalized_category</code> (1 per category), and up to 6 are forwarded.</p>
+        </div>
+      </div>
+
+      <div class="flow-step">
+        <div class="flow-line">
+          <div class="flow-dot">3</div>
+          <div class="flow-connector"></div>
+        </div>
+        <div class="flow-body">
+          <h4>Product visual descriptions (Gemini)</h4>
+          <p>For each product, Gemini Vision writes a 1–2 sentence description covering material, dominant colour, silhouette, texture, and style cues. Used as text input to FLUX instead of product images.</p>
+        </div>
+      </div>
+
+      <div class="flow-step">
+        <div class="flow-line">
+          <div class="flow-dot">4</div>
+          <div class="flow-connector"></div>
+        </div>
+        <div class="flow-body">
+          <h4>Pass 1 — Generation + validation (up to 3 attempts)</h4>
+          <ul>
+            <li>FLUX receives: room photo + text descriptions only (no product images)</li>
+            <li>Geometry validated by rembg (pixel diff) + Gemini (structural scoring)</li>
+            <li>Catalogue scored by Gemini per product — averaged over requested products only</li>
+            <li><strong>Accept if:</strong> geometry ≥ 72% AND gemini_geometry ≥ 55% AND catalogue ≥ 50%</li>
+            <li>Each retry adds escalating correction directives to the prompt</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="flow-step">
+        <div class="flow-line">
+          <div class="flow-dot">5</div>
+          <div class="flow-connector"></div>
+        </div>
+        <div class="flow-body">
+          <h4>Pass 2 — Single targeted edit (conditional)</h4>
+          <p><strong>Triggers only if:</strong> catalogue avg &lt; 65% AND at least one product scored &lt; 60%.</p>
+          <ul>
+            <li>Picks the single worst-scoring product</li>
+            <li>Uploads actual product photo to fal storage as visual reference</li>
+            <li>FLUX swaps that item using the product image</li>
+            <li><strong>Adopted if:</strong> that product's score improves AND geometry drop ≤ 8 pts AND no hallucination</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="flow-step">
+        <div class="flow-line">
+          <div class="flow-dot">6</div>
+        </div>
+        <div class="flow-body">
+          <h4>Return result</h4>
+          <p>Returns best accepted result with validation scores, placed products, invented item bounding boxes, and scale issues. If all 3 attempts fail → returns best effort result with <code>BEST EFFORT</code> badge.</p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- 6. Validation Gate Constants -->
+  <section>
+    <h2>6. Validation Gate Constants</h2>
+    <div class="const-grid">
+      <div class="const-card">
+        <div class="cname">MIN_GEOMETRY_SCORE</div>
+        <div class="cval">72%</div>
+        <div class="cdesc">Merged rembg + Gemini geometry</div>
+      </div>
+      <div class="const-card">
+        <div class="cname">MIN_GEMINI_GEOMETRY</div>
+        <div class="cval">55%</div>
+        <div class="cdesc">Hard gate — rembg cannot override Gemini detecting structural failure</div>
+      </div>
+      <div class="const-card">
+        <div class="cname">MIN_CATALOGUE_AVG</div>
+        <div class="cval">50%</div>
+        <div class="cdesc">Minimum catalogue score to accept Pass 1</div>
+      </div>
+      <div class="const-card">
+        <div class="cname">MAX_ATTEMPTS</div>
+        <div class="cval">3</div>
+        <div class="cdesc">Pass 1 generation retries before BEST EFFORT</div>
+      </div>
+      <div class="const-card">
+        <div class="cname">TARGETED_EDIT_THRESHOLD</div>
+        <div class="cval">65%</div>
+        <div class="cdesc">Catalogue avg below this triggers Pass 2</div>
+      </div>
+      <div class="const-card">
+        <div class="cname">MAX_GEOMETRY_DROP</div>
+        <div class="cval">8 pts</div>
+        <div class="cdesc">Max geometry drop allowed when adopting Pass 2</div>
+      </div>
+    </div>
+    <div class="note" style="margin-top: 16px;">
+      Geometry merged score = <strong>Gemini × 0.35 + rembg × 0.65</strong>. rembg is weighted higher as objective pixel measurement.
+      MIN_GEMINI_GEOMETRY prevents rembg from inflating the merged score when Gemini detects a clear structural failure
+      (e.g. floor material change carpet→tile, wall repaint, camera shift).
+    </div>
+  </section>
+
+  <!-- 7. Bugs Fixed -->
+  <section>
+    <h2>7. Bugs Fixed</h2>
+    <div class="table-wrap card" style="padding: 0; overflow: hidden;">
+      <table>
+        <thead>
+          <tr><th>Bug</th><th>Root Cause</th><th>Fix Applied</th></tr>
+        </thead>
+        <tbody>
+          <tr class="fix-row">
+            <td>Floor change accepted (geometry=74)</td>
+            <td>rembg=89 inflated merged score despite gemini=46 detecting floor material change</td>
+            <td>Added MIN_GEMINI_GEOMETRY=55 hard gate</td>
+          </tr>
+          <tr class="fix-row">
+            <td>3 targeted edits always discarded</td>
+            <td>Adoption used total catalogue avg — Gemini scoring noise on unedited products dragged it down</td>
+            <td>Single edit only; adopt if that specific product's score improves</td>
+          </tr>
+          <tr class="fix-row">
+            <td>6 products → 2 after dedup (EndOfBed Bench = "bed")</td>
+            <td>CATEGORY_ALIASES iterated "bed" before "stool"; bare "bed" matched "EndOfBed" substring</td>
+            <td>Moved stool before bed; made bed aliases explicit — no bare substring match</td>
+          </tr>
+          <tr class="fix-row">
+            <td>Catalogue=60 despite Bed=90, Lamp=75</td>
+            <td>Gemini added a 3rd product entry for hallucinated wardrobe; (90+75+15)/3 = 60</td>
+            <td>mergeValidationScores slices to products.length before averaging</td>
+          </tr>
+          <tr class="fix-row">
+            <td>TV stand placed in front of fireplace</td>
+            <td>Geometry lock prevented changing fireplace but didn't prevent blocking it with furniture</td>
+            <td>Added explicit "do NOT place any furniture in front of fireplace" to Pass 1 prompt</td>
+          </tr>
+          <tr class="fix-row">
+            <td>Pass 2 skipped despite Table Lamp=45%</td>
+            <td>TARGETED_EDIT_CATALOGUE_THRESHOLD=75 too high; catalogue=79% blocked Pass 2</td>
+            <td>Threshold lowered from 75 → 65</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 8. What Needs Testing -->
+  <section>
+    <h2>8. What Needs Testing Next</h2>
+    <ul class="checklist">
+      <li>
+        <span class="num">1</span>
+        <div><strong>Dedup fix validation</strong> — Re-run bedroom test with EndOfBed Bench. Expect log: <code>[stool]</code> instead of <code>[bed]</code>, and 3–4 products reaching FLUX instead of 2.</div>
+      </li>
+      <li>
+        <span class="num">2</span>
+        <div><strong>Catalogue score accuracy</strong> — Confirm catalogue avg now shows ~82% (not 60%) for the bedroom run where Bed=90, Lamp=75.</div>
+      </li>
+      <li>
+        <span class="num">3</span>
+        <div><strong>Fireplace rule</strong> — Re-run the living room test. TV stand / media console should now be placed beside the fireplace, not covering it.</div>
+      </li>
+      <li>
+        <span class="num">4</span>
+        <div><strong>Hallucination reduction</strong> — With 6 products passing through (not 2), FLUX should hallucinate far less large furniture to fill empty space.</div>
+      </li>
+      <li>
+        <span class="num">5</span>
+        <div><strong>Pass 2 targeted edit</strong> — Need a run where catalogue &lt; 65% AND a product scores &lt; 60%. Confirm log shows <code>Edited product score: X% → Y%</code> and adoption decision.</div>
+      </li>
+      <li>
+        <span class="num">6</span>
+        <div><strong>Cross-room validation</strong> — Confirm geometry ≥ 80% reliably across living room, bedroom, dining, office, and outdoor rooms after all fixes.</div>
+      </li>
+    </ul>
+  </section>
+
+  <!-- 9. Known Limitations -->
+  <section>
+    <h2>9. Known Limitations</h2>
+    <div class="card-grid">
+      <div class="card">
+        <h3>No pixel-exact product placement</h3>
+        <p class="text-muted" style="margin-top:6px;">FLUX interprets product images as style references and generates new pixels. It cannot paste a product photo into a scene. True compositing requires a completely different architecture.</p>
+      </div>
+      <div class="card">
+        <h3>Gemini geometry false positives</h3>
+        <p class="text-muted" style="margin-top:6px;">Gemini occasionally scores geometry at 80–100 even when camera angle subtly shifts. MIN_GEMINI_GEOMETRY catches major structural failures but subtle perspective drift can still pass.</p>
+      </div>
+      <div class="card">
+        <h3>Hallucination on sparse product sets</h3>
+        <p class="text-muted" style="margin-top:6px;">When only 2 products pass dedup, FLUX fills empty space with hallucinated furniture. The hallucination flag is logged but NOT in the acceptance gate — only geometry + catalogue scores block acceptance.</p>
+      </div>
+      <div class="card">
+        <h3>Kids products surfacing in bedroom</h3>
+        <p class="text-muted" style="margin-top:6px;">"Toddler Bed Tent Canopy Night Light" and similar products surface in bedroom searches and are miscategorised as "lamp". This is a catalogue data quality issue, not a code issue.</p>
+      </div>
+    </div>
+  </section>
+
+  <p style="text-align:center; color:#9ca3af; font-size:0.78rem; margin-top:40px;">
+    Interior AI — Project Summary &nbsp;·&nbsp; Last updated: April 2026
+  </p>
+
+</main>
+</body>
+</html>

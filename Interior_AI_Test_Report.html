@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Interior AI — Test Cases & Fix Analysis Report</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 14px;
+      color: #111827;
+      background: #fff;
+      padding: 48px;
+      max-width: 1100px;
+      margin: 0 auto;
+      line-height: 1.7;
+    }
+    h1 {
+      font-size: 26px;
+      font-weight: 800;
+      color: #111827;
+      margin-bottom: 6px;
+      border-bottom: 3px solid #2563eb;
+      padding-bottom: 12px;
+    }
+    .meta {
+      font-size: 13px;
+      color: #6b7280;
+      margin-bottom: 36px;
+      display: flex;
+      gap: 24px;
+    }
+    h2 {
+      font-size: 18px;
+      font-weight: 700;
+      color: #1e40af;
+      margin: 36px 0 12px;
+      padding: 8px 14px;
+      background: #eff6ff;
+      border-left: 4px solid #2563eb;
+      border-radius: 0 8px 8px 0;
+    }
+    h3 {
+      font-size: 15px;
+      font-weight: 700;
+      color: #111827;
+      margin: 24px 0 8px;
+    }
+    p { margin-bottom: 10px; }
+    ul { padding-left: 20px; margin-bottom: 10px; }
+    li { margin-bottom: 4px; }
+    code {
+      background: #f3f4f6;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: "SF Mono", Menlo, monospace;
+      font-size: 12px;
+      color: #374151;
+    }
+    pre {
+      background: #f3f4f6;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 14px 18px;
+      font-family: "SF Mono", Menlo, monospace;
+      font-size: 12px;
+      color: #374151;
+      margin: 10px 0 16px;
+      white-space: pre-wrap;
+      line-height: 1.6;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 14px 0 24px;
+      font-size: 13px;
+    }
+    th {
+      background: #1e40af;
+      color: white;
+      padding: 10px 14px;
+      text-align: left;
+      font-weight: 700;
+    }
+    td {
+      padding: 9px 14px;
+      border-bottom: 1px solid #e5e7eb;
+      vertical-align: top;
+    }
+    tr:nth-child(even) td { background: #f9fafb; }
+    tr:hover td { background: #eff6ff; }
+    .badge {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .badge-critical { background: #fee2e2; color: #991b1b; }
+    .badge-high { background: #fef3c7; color: #92400e; }
+    .badge-medium { background: #e0f2fe; color: #0369a1; }
+    .badge-low { background: #f0fdf4; color: #166534; }
+    .problem-card {
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 18px 20px;
+      margin-bottom: 18px;
+      background: #fff;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+    }
+    .problem-card.critical { border-left: 4px solid #ef4444; }
+    .problem-card.high { border-left: 4px solid #f59e0b; }
+    .problem-card.medium { border-left: 4px solid #3b82f6; }
+    .problem-card.low { border-left: 4px solid #10b981; }
+    .problem-title {
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .fix-card {
+      border: 1px solid #dbeafe;
+      border-radius: 12px;
+      padding: 18px 20px;
+      margin-bottom: 18px;
+      background: #f8faff;
+    }
+    .fix-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #1e40af;
+      margin-bottom: 10px;
+    }
+    .impact-row {
+      display: flex;
+      gap: 24px;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+    .impact-item {
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 6px 14px;
+      font-size: 12px;
+    }
+    .impact-item strong { color: #374151; }
+    .check { color: #16a34a; font-weight: 700; }
+    .cross { color: #dc2626; font-weight: 700; }
+    .partial { color: #d97706; font-weight: 700; }
+    .section-divider {
+      border: none;
+      border-top: 2px solid #e5e7eb;
+      margin: 40px 0;
+    }
+    .summary-box {
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 12px;
+      padding: 18px 22px;
+      margin: 20px 0;
+    }
+    .phase-box {
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin-bottom: 14px;
+    }
+    .phase-1 { background: #f0fdf4; border: 1px solid #bbf7d0; }
+    .phase-2 { background: #fefce8; border: 1px solid #fde68a; }
+    .footer {
+      margin-top: 48px;
+      padding-top: 16px;
+      border-top: 1px solid #e5e7eb;
+      font-size: 12px;
+      color: #9ca3af;
+      text-align: center;
+    }
+    @media print {
+      body { padding: 24px; }
+      h2 { break-before: auto; }
+      .problem-card, .fix-card { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Interior AI — Test Cases &amp; Fix Analysis Report</h1>
+  <div class="meta">
+    <span>📅 Date: April 2026</span>
+    <span>🏠 Application: Interior AI (Depth-conditioned room generation)</span>
+    <span>🔖 Version: Post-optimisation build (78s target)</span>
+  </div>
+
+  <!-- SECTION 1 -->
+  <h2>1. Test Cases Observed</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Room Type</th>
+        <th>Theme</th>
+        <th>Issue Observed</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>TC1</td>
+        <td>Living room (dark/night lighting)</td>
+        <td>Cozy</td>
+        <td>Walls repainted, windows changed, floor changed. Geometry 65% but validation passed</td>
+      </tr>
+      <tr>
+        <td>TC2</td>
+        <td>Living room (with fireplace)</td>
+        <td>Modern</td>
+        <td>Fireplace completely replaced, sofa not from catalogue — validation reported 95% catalogue match</td>
+      </tr>
+      <tr>
+        <td>TC3</td>
+        <td>Living room (arch entry)</td>
+        <td>Cozy beautiful</td>
+        <td>Arch/doorway removed, tile floor changed to wood, lamp floating after targeted edit</td>
+      </tr>
+      <tr>
+        <td>TC4</td>
+        <td>Kids bedroom</td>
+        <td>Modern</td>
+        <td>Bench rendered same size as bed, image quality poor/grainy</td>
+      </tr>
+      <tr>
+        <td>TC5</td>
+        <td>General (all rooms)</td>
+        <td>Various</td>
+        <td>AI Invented Items panel showing dark, blurry, unrecognisable crops</td>
+      </tr>
+      <tr>
+        <td>TC6</td>
+        <td>General (all rooms)</td>
+        <td>Various</td>
+        <td>Gemini validation reporting 95% scores when visually obvious failures exist</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <hr class="section-divider" />
+
+  <!-- SECTION 2 -->
+  <h2>2. Problem Statements</h2>
+
+  <div class="problem-card critical">
+    <div class="problem-title">
+      P1 — Geometry Drift
+      <span class="badge badge-critical">CRITICAL</span>
+    </div>
+    <p><strong>What happens:</strong> FLUX changes architectural elements it should never touch — floors, fireplaces, archways, wall layout, curtains.</p>
+    <p><strong>Examples seen:</strong> Tile floor → wood (TC3), fireplace replaced (TC2), arch doorway removed (TC3), walls repainted (TC1).</p>
+    <p><strong>Root cause:</strong></p>
+    <ul>
+      <li>Fireplace, archways, and floor material are NOT explicitly listed in the geometry lock prompt — FLUX treats them as decorative</li>
+      <li>The objective pixel-level geometry check (rembg) was removed during speed optimisation</li>
+      <li>Gemini-only geometry scoring is subjective and too lenient</li>
+    </ul>
+  </div>
+
+  <div class="problem-card high">
+    <div class="problem-title">
+      P2 — Validation Scores Are Unreliable
+      <span class="badge badge-high">HIGH</span>
+    </div>
+    <p><strong>What happens:</strong> Gemini reports 95% geometry and 95% catalogue match when the output is visually clearly wrong.</p>
+    <p><strong>Examples seen:</strong> Fireplace completely changed but geometry scored 95% (TC2). Sofa visually different from catalogue but scored 95% match (TC2).</p>
+    <p><strong>Root cause:</strong></p>
+    <ul>
+      <li>Gemini evaluates holistically — sees walls/ceiling/windows are same, gives high score without checking fireplace or floor individually</li>
+      <li>Catalogue matching checks "is a sofa present?" not "does this sofa look like the reference sofa?"</li>
+      <li>Users receive false confidence from scores</li>
+    </ul>
+  </div>
+
+  <div class="problem-card medium">
+    <div class="problem-title">
+      P3 — Scale Errors (Furniture Proportions Wrong)
+      <span class="badge badge-medium">MEDIUM</span>
+    </div>
+    <p><strong>What happens:</strong> Furniture rendered at incorrect scale relative to other pieces and the room.</p>
+    <p><strong>Examples seen:</strong> Bench rendered same height/size as bed (TC4). Lamp rendered larger than sofa (earlier tests).</p>
+    <p><strong>Root cause:</strong></p>
+    <ul>
+      <li>Generation prompt lists all products equally with no size hierarchy</li>
+      <li>FLUX has no understanding of real-world furniture proportions</li>
+      <li>Nothing establishes that a bed is larger than a bench</li>
+    </ul>
+  </div>
+
+  <div class="problem-card medium">
+    <div class="problem-title">
+      P4 — Targeted Edit Placement (Floating / Hanging Items)
+      <span class="badge badge-medium">MEDIUM</span>
+    </div>
+    <p><strong>What happens:</strong> When a user adds a product via text edit or "Try in Room", the item appears floating or without physical support.</p>
+    <p><strong>Examples seen:</strong> Side lamp mounted on nothing, appearing to hang in mid-air (TC3).</p>
+    <p><strong>Root cause:</strong></p>
+    <ul>
+      <li>Targeted edit prompt gives no grounding or placement instruction</li>
+      <li>FLUX places items visually without understanding gravity or physical support</li>
+    </ul>
+  </div>
+
+  <div class="problem-card high">
+    <div class="problem-title">
+      P5 — Catalogue Visual Match Is Category-Based Not Visual
+      <span class="badge badge-high">HIGH</span>
+    </div>
+    <p><strong>What happens:</strong> Validation says catalogue product matched but the generated item looks completely different from the selected product.</p>
+    <p><strong>Examples seen:</strong> Specific sofa selected — completely different sofa generated — validation scored 95% (TC2).</p>
+    <p><strong>Root cause:</strong></p>
+    <ul>
+      <li>Gemini validation asks "is this product present?" — answered by category match only</li>
+      <li>Does not compare visual appearance (colour, shape, material, silhouette) against the reference product image</li>
+    </ul>
+  </div>
+
+  <div class="problem-card low">
+    <div class="problem-title">
+      P6 — AI Invented Items Panel — Poor Image Quality
+      <span class="badge badge-low">LOW</span>
+    </div>
+    <p><strong>What happens:</strong> Crops shown in the AI Invented Items panel are dark, blurry, tiny, or unrecognisable.</p>
+    <p><strong>Root cause:</strong> Crop bounding boxes from Gemini sometimes point to dark corners. No brightness filter was applied. Minimum crop size was too small.</p>
+    <p><em>Status: Partially resolved — brightness threshold and 80px minimum added.</em></p>
+  </div>
+
+  <div class="problem-card medium">
+    <div class="problem-title">
+      P7 — Image Quality Degradation in Dark Rooms
+      <span class="badge badge-medium">MEDIUM</span>
+    </div>
+    <p><strong>What happens:</strong> Generated image is grainy and lower quality than the original photo when source is dark/low-light.</p>
+    <p><strong>Root cause:</strong> FLUX over-processes dark images to "fix" lighting, introducing noise. This is a fundamental model limitation — not a prompt issue.</p>
+    <p><em>Status: No prompt fix available. Would require pre-brightening the source image.</em></p>
+  </div>
+
+  <hr class="section-divider" />
+
+  <!-- SECTION 3 -->
+  <h2>3. Proposed Fixes</h2>
+
+  <div class="fix-card">
+    <div class="fix-title">Fix 1 — Strengthen Geometry Lock Prompt</div>
+    <p><strong>What to change:</strong> Add the following to the locked elements list in <code>buildStrictEditPrompt</code> and <code>buildGeometryLock</code>:</p>
+    <ul>
+      <li>Fireplace: surround, style, material, presence — must not be changed or replaced</li>
+      <li>Archways and room entry frames: structural openings must remain exactly as-is</li>
+      <li>Floor material and colour: tile stays tile, wood stays wood, carpet stays carpet</li>
+      <li>All ceiling fixtures: fan blades, chandelier, pendant lights — unchanged</li>
+      <li>Accent wall panels and decorative wall treatments</li>
+    </ul>
+    <p><strong>Files affected:</strong> <code>app/api/fal-place-products/route.ts</code>, <code>app/api/targeted-edit/route.ts</code></p>
+    <div class="impact-row">
+      <div class="impact-item"><strong>Time impact:</strong> Zero — prompt only</div>
+      <div class="impact-item"><strong>Cost impact:</strong> Zero</div>
+      <div class="impact-item"><strong>Resolves:</strong> P1 (60% confidence)</div>
+    </div>
+  </div>
+
+  <div class="fix-card">
+    <div class="fix-title">Fix 2 — Restore rembg Pixel-Level Geometry Score</div>
+    <p><strong>What to change:</strong> Re-enable <code>buildBackgroundMaskScore</code> which was removed during speed optimisation. Uses the rembg model to isolate non-furniture pixels and compare them between original and generated image mathematically.</p>
+    <p><strong>Why it matters:</strong> This is the ONLY objective, non-AI measurement of geometry change. It catches floor changes, wall repainting, and fireplace changes that Gemini misses.</p>
+    <p><strong>Files affected:</strong> <code>app/api/fal-place-products/route.ts</code></p>
+    <div class="impact-row">
+      <div class="impact-item"><strong>Time impact:</strong> +15s per generation (78s → ~93s)</div>
+      <div class="impact-item"><strong>Cost impact:</strong> ~Zero (rembg is a fal.ai utility)</div>
+      <div class="impact-item"><strong>Resolves:</strong> P1 (85%), P2 partial (70%)</div>
+    </div>
+  </div>
+
+  <div class="fix-card">
+    <div class="fix-title">Fix 3 — Add Scale Hierarchy to Generation Prompt</div>
+    <p><strong>What to change:</strong> Add a scale rules section to <code>buildStrictEditPrompt</code>:</p>
+    <pre>SCALE HIERARCHY — real-world proportions must be respected:
+• Hero pieces (sofa, bed, dining table): largest items, 70-90cm tall
+• Secondary pieces (chair, side table, lamp): medium, 45-75cm tall
+• Accent pieces (bench, ottoman, stool): smallest seating, 40-50cm tall
+• A bench must NEVER appear larger than a bed or sofa
+• A lamp shade must NEVER appear wider than a sofa back
+• Use door frame (standard 200cm tall) as the room scale anchor
+• If in doubt, make the item smaller rather than larger</pre>
+    <p><strong>Files affected:</strong> <code>app/api/fal-place-products/route.ts</code></p>
+    <div class="impact-row">
+      <div class="impact-item"><strong>Time impact:</strong> Zero — prompt only</div>
+      <div class="impact-item"><strong>Cost impact:</strong> Zero</div>
+      <div class="impact-item"><strong>Resolves:</strong> P3 (70% confidence)</div>
+    </div>
+  </div>
+
+  <div class="fix-card">
+    <div class="fix-title">Fix 4 — Stricter Gemini Validation Prompt</div>
+    <p><strong>What to change:</strong> Update the validation prompt in <code>validateWithGemini</code>:</p>
+    <ul>
+      <li><strong>Geometry:</strong> Explicitly ask Gemini to check fireplace, floor material, archways, curtains individually — not just walls/windows/ceiling</li>
+      <li><strong>Catalogue match:</strong> Ask "does the generated item visually match the reference — same dominant colour, material, silhouette?" not just "is the item present?"</li>
+      <li><strong>Proportionality:</strong> Add check "are all items at realistic real-world scale relative to each other?"</li>
+    </ul>
+    <p><strong>Files affected:</strong> <code>app/api/fal-place-products/route.ts</code></p>
+    <div class="impact-row">
+      <div class="impact-item"><strong>Time impact:</strong> Zero — same Gemini call</div>
+      <div class="impact-item"><strong>Cost impact:</strong> Zero</div>
+      <div class="impact-item"><strong>Resolves:</strong> P2 (80%), P5 (70%), P3 partial (50%)</div>
+    </div>
+  </div>
+
+  <div class="fix-card">
+    <div class="fix-title">Fix 5 — Restore MAX_ATTEMPTS to 2</div>
+    <p><strong>What to change:</strong> Change <code>MAX_ATTEMPTS</code> from 1 back to 2. If attempt 1 fails geometry or catalogue check, attempt 2 receives a retry directive telling FLUX exactly what failed.</p>
+    <p><strong>Why it matters:</strong> In testing before optimisation, the retry directive <em>"geometry drift detected — preserve floor, walls, fireplace exactly"</em> significantly improved attempt 2 quality.</p>
+    <p><strong>Files affected:</strong> <code>app/api/fal-place-products/route.ts</code></p>
+    <div class="impact-row">
+      <div class="impact-item"><strong>Time impact:</strong> +0s if attempt 1 passes. +78s worst case</div>
+      <div class="impact-item"><strong>Cost impact:</strong> +30-40% on failed generations only</div>
+      <div class="impact-item"><strong>Resolves:</strong> P1 (65% confidence)</div>
+    </div>
+  </div>
+
+  <div class="fix-card">
+    <div class="fix-title">Fix 6 — Targeted Edit Grounding Instruction</div>
+    <p><strong>What to change:</strong> Add a physical grounding rule to both <code>buildTextEditPrompt</code> and <code>buildProductSwapPrompt</code>:</p>
+    <pre>PHYSICAL GROUNDING — all items must obey gravity:
+• Floor lamps: base must rest visibly on the floor
+• Table lamps: base must rest on a table or shelf surface
+• Wall art: must be mounted flat against a wall
+• Sofas, chairs, benches: legs or base must contact the floor
+• No item may appear floating, hovering, or hanging without visible support</pre>
+    <p><strong>Files affected:</strong> <code>app/api/targeted-edit/route.ts</code></p>
+    <div class="impact-row">
+      <div class="impact-item"><strong>Time impact:</strong> Zero — prompt only</div>
+      <div class="impact-item"><strong>Cost impact:</strong> Zero</div>
+      <div class="impact-item"><strong>Resolves:</strong> P4 (80% confidence)</div>
+    </div>
+  </div>
+
+  <hr class="section-divider" />
+
+  <!-- SECTION 4 -->
+  <h2>4. Fix vs Problem Matrix</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Fix</th>
+        <th>P1 Geometry</th>
+        <th>P2 Validation</th>
+        <th>P3 Scale</th>
+        <th>P4 Floating</th>
+        <th>P5 Visual Match</th>
+        <th>P6 Crops</th>
+        <th>P7 Dark Rooms</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Fix 1: Prompt geometry lock</td>
+        <td><span class="partial">◑ Partial</span></td>
+        <td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td>
+      </tr>
+      <tr>
+        <td>Fix 2: rembg restored</td>
+        <td><span class="check">✓ Strong</span></td>
+        <td><span class="partial">◑ Partial</span></td>
+        <td>—</td><td>—</td><td>—</td><td>—</td><td>—</td>
+      </tr>
+      <tr>
+        <td>Fix 3: Scale hierarchy</td>
+        <td>—</td><td>—</td>
+        <td><span class="check">✓ Strong</span></td>
+        <td>—</td><td>—</td><td>—</td><td>—</td>
+      </tr>
+      <tr>
+        <td>Fix 4: Stricter validation</td>
+        <td>—</td>
+        <td><span class="check">✓ Strong</span></td>
+        <td><span class="partial">◑ Partial</span></td>
+        <td>—</td>
+        <td><span class="check">✓ Strong</span></td>
+        <td>—</td><td>—</td>
+      </tr>
+      <tr>
+        <td>Fix 5: MAX_ATTEMPTS → 2</td>
+        <td><span class="partial">◑ Partial</span></td>
+        <td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td>
+      </tr>
+      <tr>
+        <td>Fix 6: Edit grounding</td>
+        <td>—</td><td>—</td><td>—</td>
+        <td><span class="check">✓ Strong</span></td>
+        <td>—</td><td>—</td><td>—</td>
+      </tr>
+      <tr>
+        <td>Already fixed</td>
+        <td>—</td><td>—</td><td>—</td><td>—</td><td>—</td>
+        <td><span class="partial">◑ Partial</span></td>
+        <td>—</td>
+      </tr>
+      <tr>
+        <td>No fix available</td>
+        <td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td>
+        <td><span class="cross">✗ Model limit</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <hr class="section-divider" />
+
+  <!-- SECTION 5 -->
+  <h2>5. Combined Time &amp; Cost Impact</h2>
+  <table>
+    <thead>
+      <tr><th>Scenario</th><th>Current (optimised)</th><th>After All Fixes</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Best case (attempt 1 passes)</td><td>~78s</td><td>~93s (+15s rembg)</td></tr>
+      <tr><td>Worst case (attempt 2 needed)</td><td>~78s</td><td>~171s</td></tr>
+      <tr><td>Realistic average</td><td>~78s</td><td>~100–110s</td></tr>
+      <tr><td>Monthly cost (13,500 gens)</td><td>~$840–1,500</td><td>~$950–1,700 (+15–20%)</td></tr>
+    </tbody>
+  </table>
+
+  <hr class="section-divider" />
+
+  <!-- SECTION 6 -->
+  <h2>6. Problems That Cannot Be Fully Resolved</h2>
+  <table>
+    <thead>
+      <tr><th>Problem</th><th>Reason</th><th>Possible Workaround</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>P7 — Dark room image quality</td>
+        <td>FLUX model limitation with low-light source images</td>
+        <td>Pre-brighten image before sending to FLUX (introduces own risks)</td>
+      </tr>
+      <tr>
+        <td>P1 — Geometry (very complex rooms)</td>
+        <td>FLUX is a creative model — unusual architectural features will always risk drift</td>
+        <td>rembg score + retry catches most cases but not all</td>
+      </tr>
+      <tr>
+        <td>P5 — Exact visual match</td>
+        <td>FLUX generates from text description — it approximates, not copies</td>
+        <td>Gemini Vision product descriptions partially help (removed during optimisation)</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <hr class="section-divider" />
+
+  <!-- SECTION 7 -->
+  <h2>7. Recommended Implementation Order</h2>
+
+  <div class="phase-box phase-1">
+    <h3>Phase 1 — Immediate (Zero Time &amp; Cost Impact)</h3>
+    <p><strong>Fixes:</strong> Fix 1, Fix 3, Fix 4, Fix 6 — all prompt-only changes</p>
+    <p><strong>Rationale:</strong> No downtime, no cost increase, no time increase. Rebuild and test first to confirm how much improvement the model can deliver from better prompts alone.</p>
+  </div>
+
+  <div class="phase-box phase-2">
+    <h3>Phase 2 — If Phase 1 Insufficient</h3>
+    <p><strong>Fixes:</strong> Fix 2 (rembg restored) + Fix 5 (MAX_ATTEMPTS → 2)</p>
+    <p><strong>Rationale:</strong> Adds ~15s and ~15–20% cost. Only implement after confirming Phase 1 results — avoids unnecessary overhead if prompts alone resolve most cases.</p>
+  </div>
+
+  <div class="summary-box">
+    <strong>Overall confidence if all 6 fixes applied:</strong><br /><br />
+    <table style="margin:0">
+      <thead>
+        <tr><th>Problem</th><th>Confidence of Resolution</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>P1 — Geometry drift</td><td>75%</td></tr>
+        <tr><td>P2 — False validation scores</td><td>85%</td></tr>
+        <tr><td>P3 — Scale errors</td><td>70%</td></tr>
+        <tr><td>P4 — Floating/hanging items</td><td>80%</td></tr>
+        <tr><td>P5 — Catalogue visual match</td><td>70%</td></tr>
+        <tr><td>P6 — Crop quality</td><td>90%</td></tr>
+        <tr><td>P7 — Dark room quality</td><td>20% (model limitation)</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="footer">
+    Interior AI Test Cases &amp; Fix Analysis Report &nbsp;|&nbsp; April 2026 &nbsp;|&nbsp; Interior AI Development Team
+  </div>
+
+</body>
+</html>

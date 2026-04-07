@@ -43,7 +43,9 @@ const CATEGORY_ALIASES: Record<string, string[]> = {
   // nightstand is bedroom-only — removed from table alias so it never scores for living room
   table: ["table", "coffee table", "side table", "end table", "console table"],
   rug: ["rug", "carpet", "runner", "area rug"],
-  bed: ["bed", "headboard", "daybed", "platform bed", "bed frame"],
+  // stool before bed: "EndOfBed Bench" contains "bench" AND "bed" — stool must win
+  stool: ["stool", "bar stool", "ottoman", "bench", "pouf", "end of bed", "end-of-bed"],
+  bed: ["bed frame", "platform bed", "daybed", "headboard", "bunk bed", "loft bed", "toddler bed", "twin bed", "queen bed", "king bed", "bed"],
   // nightstand belongs to bedroom, not generic cabinet
   nightstand: ["nightstand", "night stand", "bedside table", "nighttable"],
   // sideboard belongs to dining room, not generic cabinet
@@ -51,7 +53,6 @@ const CATEGORY_ALIASES: Record<string, string[]> = {
   cabinet: ["cabinet", "storage cabinet", "bookshelf", "shelf", "bookcase", "tv stand", "media console"],
   dresser: ["dresser", "chest of drawers", "wardrobe", "armoire"],
   desk: ["desk", "workstation", "study table", "writing desk"],
-  stool: ["stool", "bar stool", "ottoman", "bench", "pouf"],
   dining: ["dining", "dining chair", "dining table", "kitchen table"],
   mirror: ["mirror", "wall mirror", "floor mirror", "vanity mirror"],
   // "art" removed — wall art has its own slot/bucket; keeping it here caused
