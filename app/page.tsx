@@ -48,7 +48,7 @@ type PlacedProduct = {
   similarityScore?: number;
 };
 
-type Stage = "idle" | "detecting" | "retrieving" | "inspiring" | "generating" | "ready" | "done" | "error";
+type Stage = "idle" | "detecting" | "retrieving" | "inspiring" | "inspire_review" | "generating" | "ready" | "done" | "error";
 
 const ALL_THEMES = [
   { id: "scandi", label: "Scandi" },
@@ -121,6 +121,8 @@ export default function Home() {
 
   const [theme, setTheme] = useState("japandi");
   const [customTheme, setCustomTheme] = useState("");
+  const [budgetMin, setBudgetMin] = useState<string>("");
+  const [budgetMax, setBudgetMax] = useState<string>("");
 
   const [products, setProducts] = useState<Product[]>([]);
   // pages: Map of pageNumber (1-based) → product list for that page
@@ -131,7 +133,13 @@ export default function Home() {
   const [rotationCursor, setRotationCursor] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
 
+  // Slot-grouped product options returned by catalogue API (per-slot candidates for Path B)
+  const [slotOptions, setSlotOptions] = useState<Array<{ slot: string; products: Product[] }>>([]);
+  // Per-slot selection: maps slot name → selected product_handle
+  const [slotSelections, setSlotSelections] = useState<Record<string, string>>({});
+
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
+  const [inspiredImage, setInspiredImage] = useState<string | null>(null); // AI Design preview (pause-after-inspire)
   const [placedProducts, setPlacedProducts] = useState<PlacedProduct[]>([]);
   const [validation, setValidation] = useState<ValidationReport | null>(null);
   const [inventedItemCrops, setInventedItemCrops] = useState<InventedItemCrop[]>([]);
@@ -175,7 +183,7 @@ export default function Home() {
   // Auto-load the first "More Matches" page as soon as Pass 2 starts so the
   // data is ready (or pre-fetched) by the time generation completes.
   useEffect(() => {
-    if ((stage === "generating" || stage === "done") && currentMorePage === null && !loadingMore) {
+    if ((stage === "inspire_review" || stage === "generating" || stage === "done") && currentMorePage === null && !loadingMore) {
       goToMorePage(1);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -345,30 +353,26 @@ export default function Home() {
     }
   }, []);
 
-  const retrieveCatalogue = useCallback(async () => {
-    if (!effectiveRoom) return;
-    setStage("retrieving");
-    setStageMsg("Retrieving catalogue products…");
-    setError("");
-    setGeneratedImage(null);
-    setPlacedProducts([]);
-    setValidation(null);
-    setInventedItemCrops([]);
-    setEditInstruction("");
-    setEditError("");
-    setImageHistory([]);
-    setHistoryIndex(-1);
-    setMorePages(new Map());
-    setCurrentMorePage(null);
-    setTotalMorePages(0);
-    setRotationCursor(0);
-    setValidationRejected(false);
+  // Retrieve catalogue products — called automatically after inspire approval.
+  // Returns the products (for chaining) and also sets state.
+  const retrieveCatalogue = useCallback(async (): Promise<Product[]> => {
+    if (!effectiveRoom) return [];
+
+    const minPrice = budgetMin ? parseFloat(budgetMin) : null;
+    const maxPrice = budgetMax ? parseFloat(budgetMax) : null;
 
     try {
       const res = await fetch("/api/retrieve-catalogue", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ roomType: effectiveRoom, theme: effectiveTheme, pageSize: 12, rotationCursor: 0 }),
+        body: JSON.stringify({
+          roomType: effectiveRoom,
+          theme: effectiveTheme,
+          pageSize: 12,
+          rotationCursor: 0,
+          ...(minPrice !== null && { minPrice }),
+          ...(maxPrice !== null && { maxPrice }),
+        }),
       });
       const data = await res.json();
       if (!res.ok || data.error) throw new Error(data.error || "Catalogue retrieval failed.");
@@ -379,14 +383,24 @@ export default function Home() {
       setProducts(shortlist);
       setSelected(autoSelected);
       setRotationCursor(data.nextRotationCursor ?? 1);
-      setStage("ready");
-      setStageMsg("");
+
+      // Store slot-grouped options for Path B UI
+      if (Array.isArray(data.slotOptions)) {
+        setSlotOptions(data.slotOptions);
+        // Default: select first product per slot
+        const defaults: Record<string, string> = {};
+        for (const { slot, products: slotProducts } of data.slotOptions) {
+          if (slotProducts.length > 0) defaults[slot] = slotProducts[0].product_handle;
+        }
+        setSlotSelections(defaults);
+      }
+
+      return shortlist;
     } catch (err) {
-      setStage("error");
       setError(err instanceof Error ? err.message : "Catalogue retrieval failed.");
-      setStageMsg("");
+      return [];
     }
-  }, [effectiveRoom, effectiveTheme]);
+  }, [effectiveRoom, effectiveTheme, budgetMin, budgetMax]);
 
   // Fetch a specific "More Matches" page. Uses cached result if already fetched.
   const goToMorePage = useCallback(async (targetPage: number) => {
@@ -433,13 +447,15 @@ export default function Home() {
     }
   }, [effectiveRoom, effectiveTheme, loadingMore, morePages, products, rotationCursor]);
 
-  const generateRoom = useCallback(async () => {
-    if (!originalImage || !effectiveRoom || selectedProducts.length === 0) return;
+  // ── Step 2: Generate AI Design (Inspire) — pauses for user approval ──────
+  const generateInspire = useCallback(async () => {
+    if (!originalImage || !effectiveRoom) return;
 
     setStage("inspiring");
-    setStageMsg("Creating inspiring room…");
+    setStageMsg("Creating AI Design…");
     setError("");
     setGeneratedImage(null);
+    setInspiredImage(null);
     setImageHistory([]);
     setHistoryIndex(-1);
     setEditInstruction("");
@@ -454,7 +470,6 @@ export default function Home() {
     setMoreSearch("");
 
     try {
-      // ── Pass 1: Pure style transfer (no products) ─────────────────────────
       const inspireRes = await fetch("/api/fal-inspire", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -465,24 +480,71 @@ export default function Home() {
         }),
       });
       const inspireData = await inspireRes.json();
-      if (!inspireRes.ok || !inspireData.ok) throw new Error(inspireData.error || "Style transfer failed");
+      if (!inspireRes.ok || !inspireData.ok) throw new Error(inspireData.error || "AI Design failed");
 
-      // Show inspiring image immediately — user sees theme while Pass 2 runs
+      // Show AI Design and STOP — wait for user approval
+      setInspiredImage(inspireData.inspiredImage);
       setGeneratedImage(inspireData.inspiredImage);
-      setStage("generating");
-      setStageMsg("Placing your products…");
+      setTimerMode(null);
+      setStage("inspire_review");
+      setStageMsg("");
+    } catch (err) {
+      setTimerMode(null);
+      setStage("error");
+      setError(err instanceof Error ? err.message : "AI Design failed.");
+      setStageMsg("");
+    }
+  }, [effectiveRoom, effectiveTheme, originalImage]);
 
-      // ── Pass 2: Product placement on inspired base ────────────────────────
+  // ── Step 3: Place products on the approved AI Design ────────────────────
+  // productsToPlace: if provided, only these products are used (Path B — manual selection).
+  // If omitted, all selectedProducts are used (Path A — auto).
+  // Auto-fetches catalogue if not loaded yet.
+  const placeProducts = useCallback(async (productsToPlace?: Product[]) => {
+    if (!originalImage || !effectiveRoom) return;
+
+    setStage("generating");
+    setStageMsg("Retrieving products…");
+    setError("");
+
+    // Auto-fetch catalogue if not loaded yet (Path A — user clicked "Generate Design" directly)
+    let productsForPlacement = productsToPlace;
+    if (!productsForPlacement) {
+      if (selectedProducts.length === 0) {
+        const fetched = await retrieveCatalogue();
+        if (fetched.length === 0) {
+          setStage("inspire_review");
+          setError("No products found for this room and theme.");
+          return;
+        }
+        // Use top 8 from fetched products
+        productsForPlacement = fetched.slice(0, 8);
+      } else {
+        productsForPlacement = selectedProducts;
+      }
+    }
+    if (productsForPlacement.length === 0) return;
+
+    setStageMsg("Placing your products…");
+    setPlacedProducts([]);
+    setValidation(null);
+    setInventedItemCrops([]);
+    setValidationRejected(false);
+    genStartRef.current = Date.now();
+    setGenElapsed(0);
+    setTimerMode("generating");
+
+    try {
       const res = await fetch("/api/fal-place-products", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           originalImage,
-          styledBaseImage: inspireData.inspiredImage,
+          styledBaseImage: inspiredImage,
           mimeType,
           theme: effectiveTheme,
           roomType: effectiveRoom,
-          products: selectedProducts.slice(0, 8).map((p) => ({
+          products: productsForPlacement.slice(0, 8).map((p) => ({
             title: p.title,
             category: p.normalized_category || p.category || "furniture",
             imageUrl: p.image_url,
@@ -500,13 +562,11 @@ export default function Home() {
       if (data.validation) {
         setValidation(data.validation);
       }
-      // inventedItemCrops is a top-level field in the API response, not nested in validation
       if (Array.isArray(data.inventedItemCrops)) {
         setInventedItemCrops(data.inventedItemCrops);
       }
 
       if (!data.ok) {
-        // Even on validation failure, show the best-effort image
         if (data.generatedImage) {
           setImageHistory([data.generatedImage]);
           setHistoryIndex(0);
@@ -527,10 +587,10 @@ export default function Home() {
     } catch (err) {
       setTimerMode(null);
       setStage("error");
-      setError(err instanceof Error ? err.message : "Generation failed.");
+      setError(err instanceof Error ? err.message : "Product placement failed.");
       setStageMsg("");
     }
-  }, [effectiveRoom, effectiveTheme, mimeType, originalImage, selectedProducts]);
+  }, [effectiveRoom, effectiveTheme, inspiredImage, mimeType, originalImage, selectedProducts]);
 
   function toggleProduct(handle: string) {
     setSelected((prev) => {
@@ -634,43 +694,53 @@ export default function Home() {
             style={{ width: "100%", marginTop: 10, borderRadius: 12, border: "1px solid #d1d5db", padding: 10, resize: "vertical" }}
           />
 
-          <div style={{ display: "grid", gap: 10, marginTop: 16 }}>
-            <button
-              disabled={!effectiveRoom || busy}
-              onClick={retrieveCatalogue}
-              style={{
-                borderRadius: 12, background: "#111827", color: "white", border: 0,
-                padding: "12px 14px", cursor: effectiveRoom && !busy ? "pointer" : "not-allowed",
-                opacity: effectiveRoom && !busy ? 1 : 0.5, fontWeight: 600,
-              }}
-            >
-              Search catalogue
-            </button>
-
-            <button
-              disabled={!originalImage || selectedProducts.length === 0 || !effectiveRoom || busy}
-              onClick={generateRoom}
-              style={{
-                borderRadius: 12, background: "#2563eb", color: "white", border: 0,
-                padding: "12px 14px", fontWeight: 700,
-                cursor: !originalImage || selectedProducts.length === 0 || !effectiveRoom || busy ? "not-allowed" : "pointer",
-                opacity: !originalImage || selectedProducts.length === 0 || !effectiveRoom || busy ? 0.5 : 1,
-              }}
-            >
-              Generate room
-            </button>
+          {/* 3. Budget */}
+          <div style={{ fontSize: 15, fontWeight: 700, marginTop: 18, marginBottom: 10 }}>3. Budget (optional)</div>
+          <div style={{ display: "flex", gap: 10 }}>
+            <div style={{ flex: 1 }}>
+              <label style={{ fontSize: 11, color: "#6b7280", fontWeight: 600 }}>Min ($)</label>
+              <input
+                type="number"
+                value={budgetMin}
+                onChange={(e) => setBudgetMin(e.target.value)}
+                placeholder="0"
+                min="0"
+                style={{
+                  width: "100%", marginTop: 4, borderRadius: 10, border: "1px solid #d1d5db",
+                  padding: "8px 10px", fontSize: 13,
+                }}
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={{ fontSize: 11, color: "#6b7280", fontWeight: 600 }}>Max ($)</label>
+              <input
+                type="number"
+                value={budgetMax}
+                onChange={(e) => setBudgetMax(e.target.value)}
+                placeholder="No limit"
+                min="0"
+                style={{
+                  width: "100%", marginTop: 4, borderRadius: 10, border: "1px solid #d1d5db",
+                  padding: "8px 10px", fontSize: 13,
+                }}
+              />
+            </div>
           </div>
 
-          {/* Lamp-without-table hint */}
-          {selectedProducts.some(p => (p.normalized_category || p.category || '').toLowerCase().includes('lamp')) &&
-           !selectedProducts.some(p => { const c = (p.normalized_category || p.category || '').toLowerCase(); return c.includes('table') || c.includes('desk') || c.includes('console') || c.includes('nightstand') || c.includes('shelf'); }) && (
-            <div style={{
-              marginTop: 12, padding: "10px 14px", borderRadius: 12,
-              background: "#fffbeb", border: "1px solid #fcd34d", color: "#92400e", fontSize: 13,
-            }}>
-              Tip: Add a side table to your selection for the best lamp placement result.
-            </div>
-          )}
+          <div style={{ marginTop: 16 }}>
+            <button
+              disabled={!originalImage || !effectiveRoom || busy}
+              onClick={generateInspire}
+              style={{
+                width: "100%", borderRadius: 12, background: "#2563eb", color: "white", border: 0,
+                padding: "14px 14px", fontWeight: 700, fontSize: 15,
+                cursor: !originalImage || !effectiveRoom || busy ? "not-allowed" : "pointer",
+                opacity: !originalImage || !effectiveRoom || busy ? 0.5 : 1,
+              }}
+            >
+              Generate AI Design
+            </button>
+          </div>
 
           {/* Error / warning banner */}
           {error && (
@@ -685,47 +755,7 @@ export default function Home() {
             </div>
           )}
 
-          {products.length > 0 && (
-            <>
-              <div style={{ fontSize: 15, fontWeight: 700, marginTop: 18, marginBottom: 10 }}>
-                3. Select up to 8 products
-              </div>
-              <div style={{ display: "grid", gap: 10 }}>
-                {products.map((product) => {
-                  const active = selected.has(product.product_handle);
-                  return (
-                    <button
-                      key={product.product_handle}
-                      onClick={() => toggleProduct(product.product_handle)}
-                      style={{
-                        display: "grid", gridTemplateColumns: "72px 1fr", gap: 10,
-                        textAlign: "left", borderRadius: 12,
-                        border: active ? "2px solid #2563eb" : "1px solid #e5e7eb",
-                        background: active ? "#eff6ff" : "white",
-                        padding: 10, cursor: "pointer",
-                      }}
-                    >
-                      <img
-                        src={product.image_url || ""}
-                        alt={product.title}
-                        style={{ width: 72, height: 72, objectFit: "cover", borderRadius: 10 }}
-                        onError={(e) => { (e.currentTarget.closest("button") as HTMLElement).style.display = "none"; }}
-                      />
-                      <div>
-                        <div style={{ fontSize: 13, fontWeight: 700, lineHeight: 1.35 }}>{product.title}</div>
-                        <div style={{ fontSize: 11, color: "#6b7280", marginTop: 6 }}>
-                          {product.normalized_category || product.category || "furniture"}
-                        </div>
-                        <div style={{ fontSize: 11, color: "#374151", marginTop: 4 }}>
-                          {formatPrice(product.min_price, product.max_price)}
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </>
-          )}
+          {/* Slot-grouped product selection moved to center panel */}
         </aside>
 
         {/* ── Right main content ──────────────────────────────────────── */}
@@ -747,8 +777,19 @@ export default function Home() {
               {/* Header row */}
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
                 <div style={{ fontSize: 14, fontWeight: 700 }}>
-                  {stage === "inspiring" ? "Inspiring preview…" : stage === "generating" && generatedImage ? "Inspiring preview — placing products…" : "Generated room"}
+                  {stage === "inspiring" ? "Creating AI Design…"
+                    : stage === "inspire_review" ? "AI Design Preview"
+                    : stage === "generating" ? "Placing products…"
+                    : "Generated room"}
                 </div>
+                {stage === "inspire_review" && (
+                  <span style={{
+                    fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 999,
+                    background: "#dbeafe", color: "#1d4ed8",
+                  }}>
+                    REVIEW
+                  </span>
+                )}
                 {validation && (
                   <span style={{
                     fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 999,
@@ -795,7 +836,81 @@ export default function Home() {
                 <img src={generatedImage} alt="Generated room" style={{ width: "100%", borderRadius: 12, display: "block" }} />
               ) : (
                 <div style={{ minHeight: 360, borderRadius: 12, background: "#f9fafb", display: "grid", placeItems: "center", color: "#6b7280" }}>
-                  {stage === "inspiring" ? "Creating inspiring room…" : stage === "generating" ? "Placing products…" : "The validated output will appear here."}
+                  {stage === "inspiring" ? "Creating AI Design…" : stage === "generating" ? "Placing products…" : "Your AI Design will appear here."}
+                </div>
+              )}
+
+              {/* ── AI Design Review: Approve / Regenerate + Path A / Path B ── */}
+              {stage === "inspire_review" && generatedImage && (
+                <div style={{ marginTop: 16 }}>
+                  {/* Info banner */}
+                  <div style={{
+                    padding: "12px 16px", borderRadius: 10,
+                    background: "#eff6ff", border: "1px solid #bfdbfe",
+                    marginBottom: 14, fontSize: 13, color: "#1e40af", lineHeight: 1.5,
+                  }}>
+                    This is your <strong>AI Design preview</strong> — a styled vision of your room.
+                    If you like the direction, choose how to furnish it with real products below.
+                  </div>
+
+                  {/* Action buttons */}
+                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                    {/* Path A: Generate with all catalogue products */}
+                    <button
+                      onClick={() => placeProducts()}
+                      disabled={selectedProducts.length === 0}
+                      style={{
+                        flex: 1, minWidth: 180, padding: "14px 20px", borderRadius: 12,
+                        background: "#2563eb", color: "white", border: 0,
+                        fontWeight: 700, fontSize: 14,
+                        cursor: selectedProducts.length === 0 ? "not-allowed" : "pointer",
+                        opacity: selectedProducts.length === 0 ? 0.5 : 1,
+                      }}
+                    >
+                      Generate Design
+                      <div style={{ fontSize: 11, fontWeight: 400, opacity: 0.85, marginTop: 2 }}>
+                        Auto-place all catalogue products
+                      </div>
+                    </button>
+
+                    {/* Path B: Choose products manually — fetch catalogue then scroll */}
+                    <button
+                      onClick={async () => {
+                        if (products.length === 0) {
+                          setStageMsg("Loading products…");
+                          await retrieveCatalogue();
+                          setStageMsg("");
+                        }
+                        // Small delay so DOM renders the product list before scrolling
+                        setTimeout(() => {
+                          const el = document.getElementById("product-selection");
+                          if (el) el.scrollIntoView({ behavior: "smooth" });
+                        }, 100);
+                      }}
+                      style={{
+                        flex: 1, minWidth: 180, padding: "14px 20px", borderRadius: 12,
+                        background: "white", color: "#374151", border: "2px solid #e5e7eb",
+                        fontWeight: 700, fontSize: 14, cursor: "pointer",
+                      }}
+                    >
+                      Choose Products
+                      <div style={{ fontSize: 11, fontWeight: 400, opacity: 0.7, marginTop: 2 }}>
+                        Select specific items to place
+                      </div>
+                    </button>
+
+                    {/* Regenerate */}
+                    <button
+                      onClick={generateInspire}
+                      style={{
+                        padding: "14px 20px", borderRadius: 12,
+                        background: "white", color: "#6b7280", border: "1px solid #d1d5db",
+                        fontWeight: 600, fontSize: 13, cursor: "pointer",
+                      }}
+                    >
+                      Regenerate
+                    </button>
+                  </div>
                 </div>
               )}
 
@@ -882,6 +997,138 @@ export default function Home() {
                     <div key={idx} style={{ marginTop: idx === 0 ? 0 : 6 }}>• {note}</div>
                   ))}
                 </div>
+              )}
+            </section>
+          )}
+
+          {/* ── SLOT-GROUPED PRODUCT SELECTION — center panel (Path B) ── */}
+          {slotOptions.length > 0 && (stage === "inspire_review" || stage === "generating" || stage === "done") && (
+            <section id="product-selection" style={{ background: "white", borderRadius: 20, border: "1px solid #e5e7eb", padding: "22px 24px" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
+                <div>
+                  <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: 0.5, textTransform: "uppercase" }}>
+                    Choose Your Products
+                  </div>
+                  <div style={{ fontSize: 13, color: "#6b7280", marginTop: 4 }}>
+                    Pick one item per category to furnish your room
+                  </div>
+                </div>
+                {stage === "inspire_review" && Object.keys(slotSelections).length > 0 && (
+                  <button
+                    onClick={() => {
+                      const chosenProducts: Product[] = [];
+                      for (const { slot, products: slotProds } of slotOptions) {
+                        const handle = slotSelections[slot];
+                        if (handle) {
+                          const found = slotProds.find(p => p.product_handle === handle);
+                          if (found) chosenProducts.push(found);
+                        }
+                      }
+                      if (chosenProducts.length > 0) placeProducts(chosenProducts);
+                    }}
+                    style={{
+                      padding: "10px 24px", borderRadius: 12,
+                      background: "#2563eb", color: "white", border: 0,
+                      fontWeight: 700, fontSize: 14, cursor: "pointer",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    Generate with {Object.keys(slotSelections).length} product{Object.keys(slotSelections).length !== 1 ? "s" : ""}
+                  </button>
+                )}
+              </div>
+
+              {slotOptions.map(({ slot, products: slotProducts }) => {
+                const slotLabel = slot.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+                const selectedHandle = slotSelections[slot];
+                return (
+                  <div key={slot} style={{ marginBottom: 20 }}>
+                    <div style={{
+                      fontSize: 13, fontWeight: 700, textTransform: "uppercase",
+                      letterSpacing: "0.04em", color: "#374151", marginBottom: 10,
+                      borderBottom: "1px solid #f3f4f6", paddingBottom: 6,
+                    }}>
+                      {slotLabel}
+                    </div>
+                    <div style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
+                      gap: 10,
+                    }}>
+                      {slotProducts.map((product) => {
+                        const active = product.product_handle === selectedHandle;
+                        return (
+                          <button
+                            key={product.product_handle}
+                            onClick={() => {
+                              setSlotSelections(prev => ({ ...prev, [slot]: product.product_handle }));
+                            }}
+                            style={{
+                              borderRadius: 12,
+                              border: active ? "2px solid #2563eb" : "1px solid #e5e7eb",
+                              background: active ? "#eff6ff" : "white",
+                              padding: 10, cursor: "pointer", textAlign: "center",
+                              transition: "border-color 0.15s, background 0.15s",
+                              position: "relative",
+                            }}
+                          >
+                            {active && (
+                              <div style={{
+                                position: "absolute", top: 6, right: 6,
+                                width: 20, height: 20, borderRadius: "50%",
+                                background: "#2563eb", color: "white",
+                                display: "grid", placeItems: "center",
+                                fontSize: 12, fontWeight: 700,
+                              }}>
+                                ✓
+                              </div>
+                            )}
+                            <img
+                              src={product.image_url || ""}
+                              alt={product.title}
+                              style={{ width: "100%", height: 100, objectFit: "cover", borderRadius: 8 }}
+                              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                            />
+                            <div style={{
+                              fontSize: 12, fontWeight: 600, marginTop: 8,
+                              lineHeight: 1.3, height: 32, overflow: "hidden",
+                              color: "#111827",
+                            }}>
+                              {product.title?.slice(0, 45)}
+                            </div>
+                            <div style={{ fontSize: 12, color: "#2563eb", fontWeight: 700, marginTop: 4 }}>
+                              {formatPrice(product.min_price, product.max_price)}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Bottom generate button */}
+              {stage === "inspire_review" && Object.keys(slotSelections).length > 0 && (
+                <button
+                  onClick={() => {
+                    const chosenProducts: Product[] = [];
+                    for (const { slot, products: slotProds } of slotOptions) {
+                      const handle = slotSelections[slot];
+                      if (handle) {
+                        const found = slotProds.find(p => p.product_handle === handle);
+                        if (found) chosenProducts.push(found);
+                      }
+                    }
+                    if (chosenProducts.length > 0) placeProducts(chosenProducts);
+                  }}
+                  style={{
+                    marginTop: 8, width: "100%", padding: "14px 20px", borderRadius: 12,
+                    background: "#2563eb", color: "white", border: 0,
+                    fontWeight: 700, fontSize: 15, cursor: "pointer",
+                  }}
+                >
+                  Generate with {Object.keys(slotSelections).length} selected product{Object.keys(slotSelections).length !== 1 ? "s" : ""}
+                </button>
               )}
             </section>
           )}
@@ -1108,7 +1355,7 @@ export default function Home() {
                Paginated browse-only panel. Shown during generation so users
                can browse while waiting, and remains visible after done.
                Each page shows 12 fresh products for the same room × theme. */}
-          {(stage === "generating" || stage === "done") && (
+          {(stage === "inspire_review" || stage === "generating" || stage === "done") && (
             <section id="more-matches" style={{ background: "white", borderRadius: 20, border: "1px solid #e5e7eb", padding: "22px 24px" }}>
               {/* Header */}
               <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 16, gap: 16, flexWrap: "wrap" }}>

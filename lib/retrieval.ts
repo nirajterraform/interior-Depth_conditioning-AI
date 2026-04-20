@@ -1495,7 +1495,7 @@ export async function retrieveKitchenSlots(params: {
     embedQuery(`${theme} kitchen ${q.cabinet}`),
   ]);
 
-  const LIMIT = 8;
+  const LIMIT = 25;
 
   const [stools, chairs, lamps, decor, cabinets] = await Promise.all([
     queryBucketCandidates(stoolEmb,   roomType, { bucket: "seating",  limit: LIMIT, required: true,  allowedCategories: ["bar_stool"] },                              [], minPrice, maxPrice),
@@ -1508,11 +1508,11 @@ export async function retrieveKitchenSlots(params: {
   ]);
 
   return [
-    { slot: "stool",   products: rerankBucketItems("seating",  stools,   theme, seed, roomType).slice(0, 3) },
-    { slot: "chair",   products: rerankBucketItems("seating",  chairs,   theme, seed, roomType).slice(0, 3) },
-    { slot: "lamp",    products: rerankBucketItems("lighting", lamps,    theme, seed, roomType).slice(0, 3) },
-    { slot: "decor",   products: rerankBucketItems("decor",    decor,    theme, seed, roomType).slice(0, 3) },
-    { slot: "cabinet", products: rerankBucketItems("storage",  cabinets, theme, seed, roomType).slice(0, 3) },
+    { slot: "stool",   products: rerankBucketItems("seating",  stools,   theme, seed, roomType).slice(0, 12) },
+    { slot: "chair",   products: rerankBucketItems("seating",  chairs,   theme, seed, roomType).slice(0, 12) },
+    { slot: "lamp",    products: rerankBucketItems("lighting", lamps,    theme, seed, roomType).slice(0, 12) },
+    { slot: "decor",   products: rerankBucketItems("decor",    decor,    theme, seed, roomType).slice(0, 12) },
+    { slot: "cabinet", products: rerankBucketItems("storage",  cabinets, theme, seed, roomType).slice(0, 12) },
   ];
 }
 
@@ -1699,7 +1699,7 @@ export async function retrieveKidsRoomSlots(params: {
     embedQuery(`${theme} ${q.decor}`),
   ]);
 
-  const LIMIT = 8;
+  const LIMIT = 25;
 
   const [beds, lamps, rugs, storage, decor] = await Promise.all([
     queryBucketCandidates(bedEmb,     roomType, { bucket: "bed",      limit: LIMIT, required: true,  allowedCategories: ["bed"] },                              [], minPrice, maxPrice),
@@ -1710,11 +1710,11 @@ export async function retrieveKidsRoomSlots(params: {
   ]);
 
   return [
-    { slot: "bed",     products: rerankBucketItems("bed",      beds,    theme, seed, roomType).slice(0, 3) },
-    { slot: "lamp",    products: rerankBucketItems("lighting", lamps,   theme, seed, roomType).slice(0, 3) },
-    { slot: "rug",     products: rerankBucketItems("soft_furnishing", rugs,    theme, seed, roomType).slice(0, 3) },
-    { slot: "storage", products: rerankBucketItems("storage",  storage, theme, seed, roomType).slice(0, 3) },
-    { slot: "decor",   products: rerankBucketItems("decor",    decor,   theme, seed, roomType).slice(0, 3) },
+    { slot: "bed",     products: rerankBucketItems("bed",      beds,    theme, seed, roomType).slice(0, 12) },
+    { slot: "lamp",    products: rerankBucketItems("lighting", lamps,   theme, seed, roomType).slice(0, 12) },
+    { slot: "rug",     products: rerankBucketItems("soft_furnishing", rugs,    theme, seed, roomType).slice(0, 12) },
+    { slot: "storage", products: rerankBucketItems("storage",  storage, theme, seed, roomType).slice(0, 12) },
+    { slot: "decor",   products: rerankBucketItems("decor",    decor,   theme, seed, roomType).slice(0, 12) },
   ];
 }
 
@@ -1797,7 +1797,7 @@ export async function retrieveHallwaySlots(params: {
     embedQuery(`${theme} ${q.bench}`),
   ]);
 
-  const LIMIT = 8;
+  const LIMIT = 25;
   const [consoles, mirrors, lamps, rugs, benches] = await Promise.all([
     queryBucketCandidates(consoleEmb, roomType, { bucket: "tables",          limit: LIMIT, required: true,  allowedCategories: ["console_table", "side_table"] }, [], minPrice, maxPrice),
     queryBucketCandidates(mirrorEmb,  roomType, { bucket: "decor",           limit: LIMIT, required: true,  allowedCategories: ["mirror"] },                     [], minPrice, maxPrice),
@@ -1807,11 +1807,11 @@ export async function retrieveHallwaySlots(params: {
   ]);
 
   return [
-    { slot: "console", products: rerankBucketItems("tables",          consoles, theme, seed, roomType).slice(0, 3) },
-    { slot: "mirror",  products: rerankBucketItems("decor",           mirrors,  theme, seed, roomType).slice(0, 3) },
-    { slot: "lamp",    products: rerankBucketItems("lighting",        lamps,    theme, seed, roomType).slice(0, 3) },
-    { slot: "rug",     products: rerankBucketItems("soft_furnishing", rugs,     theme, seed, roomType).slice(0, 3) },
-    { slot: "bench",   products: rerankBucketItems("seating",         benches,  theme, seed, roomType).slice(0, 3) },
+    { slot: "console", products: rerankBucketItems("tables",          consoles, theme, seed, roomType).slice(0, 12) },
+    { slot: "mirror",  products: rerankBucketItems("decor",           mirrors,  theme, seed, roomType).slice(0, 12) },
+    { slot: "lamp",    products: rerankBucketItems("lighting",        lamps,    theme, seed, roomType).slice(0, 12) },
+    { slot: "rug",     products: rerankBucketItems("soft_furnishing", rugs,     theme, seed, roomType).slice(0, 12) },
+    { slot: "bench",   products: rerankBucketItems("seating",         benches,  theme, seed, roomType).slice(0, 12) },
   ];
 }
 
@@ -1988,7 +1988,7 @@ export async function retrieveLoftSlots(params: {
     embedQuery(`${theme} ${q.bench}`),
   ]);
 
-  const LIMIT = 8;
+  const LIMIT = 25;
   const [tablesRaw, lampsRaw, wallArts, mirrorsRaw, benches] = await Promise.all([
     queryBucketCandidates(tableEmb,   roomType, { bucket: "tables",   limit: LIMIT, required: true,  allowedCategories: ["console_table", "side_table", "coffee_table"] },                    [], minPrice, maxPrice),
     queryBucketCandidates(lampEmb,    roomType, { bucket: "lighting", limit: LIMIT, required: true,  allowedCategories: ["lamp"] },                                                            [], minPrice, maxPrice),
@@ -2001,11 +2001,11 @@ export async function retrieveLoftSlots(params: {
   const mirrors = filterEntryMirrors(mirrorsRaw);
 
   return [
-    { slot: "table",    products: rerankBucketItems("tables",   tables,   theme, seed, roomType).slice(0, 3) },
-    { slot: "lamp",     products: rerankBucketItems("lighting", lamps,    theme, seed, roomType).slice(0, 3) },
-    { slot: "wall_art", products: rerankBucketItems("wall_art", wallArts, theme, seed, roomType).slice(0, 3) },
-    { slot: "mirror",   products: rerankBucketItems("decor",    mirrors,  theme, seed, roomType).slice(0, 3) },
-    { slot: "bench",    products: rerankBucketItems("seating",  benches,  theme, seed, roomType).slice(0, 3) },
+    { slot: "table",    products: rerankBucketItems("tables",   tables,   theme, seed, roomType).slice(0, 12) },
+    { slot: "lamp",     products: rerankBucketItems("lighting", lamps,    theme, seed, roomType).slice(0, 12) },
+    { slot: "wall_art", products: rerankBucketItems("wall_art", wallArts, theme, seed, roomType).slice(0, 12) },
+    { slot: "mirror",   products: rerankBucketItems("decor",    mirrors,  theme, seed, roomType).slice(0, 12) },
+    { slot: "bench",    products: rerankBucketItems("seating",  benches,  theme, seed, roomType).slice(0, 12) },
   ];
 }
 
@@ -2029,7 +2029,7 @@ export async function retrieveFoyerSlots(params: {
     embedQuery(`${theme} ${q.bench}`),
   ]);
 
-  const LIMIT = 8;
+  const LIMIT = 25;
   const [tablesRaw, lampsRaw, wallArts, mirrorsRaw, benches] = await Promise.all([
     queryBucketCandidates(tableEmb,   roomType, { bucket: "tables",   limit: LIMIT, required: true,  allowedCategories: ["console_table", "side_table", "coffee_table"] },                    [], minPrice, maxPrice),
     queryBucketCandidates(lampEmb,    roomType, { bucket: "lighting", limit: LIMIT, required: true,  allowedCategories: ["lamp"] },                                                            [], minPrice, maxPrice),
@@ -2042,11 +2042,11 @@ export async function retrieveFoyerSlots(params: {
   const mirrors = filterEntryMirrors(mirrorsRaw);
 
   return [
-    { slot: "table",    products: rerankBucketItems("tables",   tables,   theme, seed, roomType).slice(0, 3) },
-    { slot: "lamp",     products: rerankBucketItems("lighting", lamps,    theme, seed, roomType).slice(0, 3) },
-    { slot: "wall_art", products: rerankBucketItems("wall_art", wallArts, theme, seed, roomType).slice(0, 3) },
-    { slot: "mirror",   products: rerankBucketItems("decor",    mirrors,  theme, seed, roomType).slice(0, 3) },
-    { slot: "bench",    products: rerankBucketItems("seating",  benches,  theme, seed, roomType).slice(0, 3) },
+    { slot: "table",    products: rerankBucketItems("tables",   tables,   theme, seed, roomType).slice(0, 12) },
+    { slot: "lamp",     products: rerankBucketItems("lighting", lamps,    theme, seed, roomType).slice(0, 12) },
+    { slot: "wall_art", products: rerankBucketItems("wall_art", wallArts, theme, seed, roomType).slice(0, 12) },
+    { slot: "mirror",   products: rerankBucketItems("decor",    mirrors,  theme, seed, roomType).slice(0, 12) },
+    { slot: "bench",    products: rerankBucketItems("seating",  benches,  theme, seed, roomType).slice(0, 12) },
   ];
 }
 
@@ -2108,7 +2108,7 @@ export async function retrieveFrontyardSlots(params: {
     embedQuery(`${theme} ${q.planter}`),
   ]);
 
-  const LIMIT = 8;
+  const LIMIT = 25;
   const [seating, tables, lighting, planters] = await Promise.all([
     queryBucketCandidates(seatingEmb,  roomType, { bucket: "seating",  limit: LIMIT, required: true,  allowedCategories: ["outdoor_seating", "bench", "outdoor_chair", "outdoor_sofa"] },  [], minPrice, maxPrice),
     queryBucketCandidates(tableEmb,    roomType, { bucket: "tables",   limit: LIMIT, required: false, allowedCategories: ["outdoor_table", "side_table"] },                                 [], minPrice, maxPrice),
@@ -2117,10 +2117,10 @@ export async function retrieveFrontyardSlots(params: {
   ]);
 
   return [
-    { slot: "seating",  products: rerankBucketItems("seating",  seating,  theme, seed, roomType).slice(0, 3) },
-    { slot: "table",    products: rerankBucketItems("tables",   tables,   theme, seed, roomType).slice(0, 3) },
-    { slot: "lighting", products: rerankBucketItems("lighting", lighting, theme, seed, roomType).slice(0, 3) },
-    { slot: "planter",  products: rerankBucketItems("decor",    planters, theme, seed, roomType).slice(0, 3) },
+    { slot: "seating",  products: rerankBucketItems("seating",  seating,  theme, seed, roomType).slice(0, 12) },
+    { slot: "table",    products: rerankBucketItems("tables",   tables,   theme, seed, roomType).slice(0, 12) },
+    { slot: "lighting", products: rerankBucketItems("lighting", lighting, theme, seed, roomType).slice(0, 12) },
+    { slot: "planter",  products: rerankBucketItems("decor",    planters, theme, seed, roomType).slice(0, 12) },
   ];
 }
 
@@ -2187,7 +2187,7 @@ export async function retrieveBackyardSlots(params: {
     embedQuery(`${theme} ${q.fire_pit}`),
   ]);
 
-  const LIMIT = 8;
+  const LIMIT = 25;
   const [seating, tables, lighting, planters, firePits] = await Promise.all([
     queryBucketCandidates(seatingEmb,  roomType, { bucket: "seating",  limit: LIMIT, required: true,  allowedCategories: ["outdoor_seating", "outdoor_sofa", "outdoor_chair", "bench", "outdoor_lounger"] }, [], minPrice, maxPrice),
     queryBucketCandidates(tableEmb,    roomType, { bucket: "tables",   limit: LIMIT, required: true,  allowedCategories: ["outdoor_table", "outdoor_dining_table", "side_table"] },                           [], minPrice, maxPrice),
@@ -2197,11 +2197,11 @@ export async function retrieveBackyardSlots(params: {
   ]);
 
   return [
-    { slot: "seating",  products: rerankBucketItems("seating",  seating,  theme, seed, roomType).slice(0, 3) },
-    { slot: "table",    products: rerankBucketItems("tables",   tables,   theme, seed, roomType).slice(0, 3) },
-    { slot: "lighting", products: rerankBucketItems("lighting", lighting, theme, seed, roomType).slice(0, 3) },
-    { slot: "planter",  products: rerankBucketItems("decor",    planters, theme, seed, roomType).slice(0, 3) },
-    { slot: "fire_pit", products: rerankBucketItems("decor",    firePits, theme, seed, roomType).slice(0, 3) },
+    { slot: "seating",  products: rerankBucketItems("seating",  seating,  theme, seed, roomType).slice(0, 12) },
+    { slot: "table",    products: rerankBucketItems("tables",   tables,   theme, seed, roomType).slice(0, 12) },
+    { slot: "lighting", products: rerankBucketItems("lighting", lighting, theme, seed, roomType).slice(0, 12) },
+    { slot: "planter",  products: rerankBucketItems("decor",    planters, theme, seed, roomType).slice(0, 12) },
+    { slot: "fire_pit", products: rerankBucketItems("decor",    firePits, theme, seed, roomType).slice(0, 12) },
   ];
 }
 
@@ -2224,7 +2224,7 @@ export async function retrieveBedroomSlots(params: {
     embedQuery(`${theme} ${q.dresser}`),
   ]);
 
-  const LIMIT = 8;
+  const LIMIT = 25;
 
   const [bedsRaw, nightstands, lampsRaw, bedding, dressers] = await Promise.all([
     queryBucketCandidates(bedEmb,       roomType, { bucket: "bed",            limit: LIMIT, required: true,  allowedCategories: ["bed"] },                    [], minPrice, maxPrice),
@@ -2239,11 +2239,11 @@ export async function retrieveBedroomSlots(params: {
   const dressersFiltered = filterBedroomDressers(dressers);
 
   return [
-    { slot: "bed",       products: rerankBucketItems("bed",            beds,       theme, seed, roomType).slice(0, 3) },
-    { slot: "nightstand", products: rerankBucketItems("tables",        nightstands, theme, seed, roomType).slice(0, 3) },
-    { slot: "lamp",      products: rerankBucketItems("lighting",       lamps,      theme, seed, roomType).slice(0, 3) },
-    { slot: "bedding",   products: rerankBucketItems("soft_furnishing", bedding,    theme, seed, roomType).slice(0, 3) },
-    { slot: "dresser",   products: rerankBucketItems("storage",        dressersFiltered, theme, seed, roomType).slice(0, 3) },
+    { slot: "bed",       products: rerankBucketItems("bed",            beds,       theme, seed, roomType).slice(0, 12) },
+    { slot: "nightstand", products: rerankBucketItems("tables",        nightstands, theme, seed, roomType).slice(0, 12) },
+    { slot: "lamp",      products: rerankBucketItems("lighting",       lamps,      theme, seed, roomType).slice(0, 12) },
+    { slot: "bedding",   products: rerankBucketItems("soft_furnishing", bedding,    theme, seed, roomType).slice(0, 12) },
+    { slot: "dresser",   products: rerankBucketItems("storage",        dressersFiltered, theme, seed, roomType).slice(0, 12) },
   ];
 }
 
@@ -2287,7 +2287,7 @@ export async function retrieveLivingRoomSlots(params: {
     embedQuery(`${theme} ${q.lamp}`),
   ]);
 
-  const LIMIT = 8;
+  const LIMIT = 25;
 
   const [sofasRaw, chairs, rugs, coffeeTables, lamps] = await Promise.all([
     queryBucketCandidates(sofaEmb,  roomType, { bucket: "seating",         limit: LIMIT, required: true,  allowedCategories: ["sofa"] },         [], minPrice, maxPrice),
@@ -2301,10 +2301,84 @@ export async function retrieveLivingRoomSlots(params: {
   const sofas = sofasRaw.filter(p => !/sleeper|sofa.?bed|futon|pull.?out|daybed|loveseat|bean.?bag/i.test(p.title));
 
   return [
-    { slot: "sofa",         products: rerankBucketItems("seating",         sofas,        theme, seed, roomType).slice(0, 3) },
-    { slot: "chair",        products: rerankBucketItems("seating",         chairs,       theme, seed, roomType).slice(0, 3) },
-    { slot: "rug",          products: rerankBucketItems("soft_furnishing", rugs,         theme, seed, roomType).slice(0, 3) },
-    { slot: "coffee_table", products: rerankBucketItems("tables",          coffeeTables, theme, seed, roomType).slice(0, 3) },
-    { slot: "lamp",         products: rerankBucketItems("lighting",        lamps,        theme, seed, roomType).slice(0, 3) },
+    { slot: "sofa",         products: rerankBucketItems("seating",         sofas,        theme, seed, roomType).slice(0, 12) },
+    { slot: "chair",        products: rerankBucketItems("seating",         chairs,       theme, seed, roomType).slice(0, 12) },
+    { slot: "rug",          products: rerankBucketItems("soft_furnishing", rugs,         theme, seed, roomType).slice(0, 12) },
+    { slot: "coffee_table", products: rerankBucketItems("tables",          coffeeTables, theme, seed, roomType).slice(0, 12) },
+    { slot: "lamp",         products: rerankBucketItems("lighting",        lamps,        theme, seed, roomType).slice(0, 12) },
+  ];
+}
+
+// ─── Dining Room per-slot retrieval ─────────────────────────────────────────
+
+export async function retrieveDiningRoomSlots(params: {
+  theme: string;
+  minPrice?: number | null;
+  maxPrice?: number | null;
+}): Promise<{ slot: string; products: RetrievedProduct[] }[]> {
+  const { theme, minPrice = null, maxPrice = null } = params;
+  const roomType: RoomType = "dining_room";
+  const seed = `dining_room|${theme.toLowerCase().replace(/\s+/g, "_")}|fixed`;
+
+  const [diningTableEmb, chairEmb, sideboardEmb, lampEmb, rugEmb] = await Promise.all([
+    embedQuery(`${theme} dining table rectangular wood modern`),
+    embedQuery(`${theme} dining chair upholstered set`),
+    embedQuery(`${theme} sideboard buffet cabinet dining room storage`),
+    embedQuery(`${theme} pendant light chandelier dining room lamp`),
+    embedQuery(`${theme} area rug dining room under table`),
+  ]);
+
+  const LIMIT = 25;
+  const [diningTables, chairs, sideboards, lamps, rugs] = await Promise.all([
+    queryBucketCandidates(diningTableEmb, roomType, { bucket: "tables",          limit: LIMIT, required: true,  allowedCategories: ["dining_table"] },             [], minPrice, maxPrice),
+    queryBucketCandidates(chairEmb,       roomType, { bucket: "seating",         limit: LIMIT, required: true,  allowedCategories: ["dining_chair"] },             [], minPrice, maxPrice),
+    queryBucketCandidates(sideboardEmb,   roomType, { bucket: "storage",         limit: LIMIT, required: false, allowedCategories: ["sideboard", "buffet", "cabinet"] }, [], minPrice, maxPrice),
+    queryBucketCandidates(lampEmb,        roomType, { bucket: "lighting",        limit: LIMIT, required: true,  allowedCategories: ["lamp", "chandelier"] },       [], minPrice, maxPrice),
+    queryBucketCandidates(rugEmb,         roomType, { bucket: "soft_furnishing", limit: LIMIT, required: false, allowedCategories: ["rug"] },                      [], minPrice, maxPrice),
+  ]);
+
+  return [
+    { slot: "dining_table", products: rerankBucketItems("tables",          diningTables, theme, seed, roomType).slice(0, 12) },
+    { slot: "chair",        products: rerankBucketItems("seating",         chairs,       theme, seed, roomType).slice(0, 12) },
+    { slot: "sideboard",    products: rerankBucketItems("storage",         sideboards,   theme, seed, roomType).slice(0, 12) },
+    { slot: "lamp",         products: rerankBucketItems("lighting",        lamps,        theme, seed, roomType).slice(0, 12) },
+    { slot: "rug",          products: rerankBucketItems("soft_furnishing", rugs,         theme, seed, roomType).slice(0, 12) },
+  ];
+}
+
+// ─── Office per-slot retrieval ──────────────────────────────────────────────
+
+export async function retrieveOfficeSlots(params: {
+  theme: string;
+  minPrice?: number | null;
+  maxPrice?: number | null;
+}): Promise<{ slot: string; products: RetrievedProduct[] }[]> {
+  const { theme, minPrice = null, maxPrice = null } = params;
+  const roomType: RoomType = "office";
+  const seed = `office|${theme.toLowerCase().replace(/\s+/g, "_")}|fixed`;
+
+  const [deskEmb, chairEmb, lampEmb, cabinetEmb, rugEmb] = await Promise.all([
+    embedQuery(`${theme} office desk writing desk workstation`),
+    embedQuery(`${theme} office chair ergonomic task chair`),
+    embedQuery(`${theme} desk lamp table lamp office`),
+    embedQuery(`${theme} bookshelf bookcase office storage cabinet`),
+    embedQuery(`${theme} area rug office room`),
+  ]);
+
+  const LIMIT = 25;
+  const [desks, chairs, lamps, cabinets, rugs] = await Promise.all([
+    queryBucketCandidates(deskEmb,    roomType, { bucket: "tables",          limit: LIMIT, required: true,  allowedCategories: ["desk", "writing_desk"] },          [], minPrice, maxPrice),
+    queryBucketCandidates(chairEmb,   roomType, { bucket: "seating",         limit: LIMIT, required: true,  allowedCategories: ["office_chair", "task_chair"] },    [], minPrice, maxPrice),
+    queryBucketCandidates(lampEmb,    roomType, { bucket: "lighting",        limit: LIMIT, required: true,  allowedCategories: ["lamp"] },                          [], minPrice, maxPrice),
+    queryBucketCandidates(cabinetEmb, roomType, { bucket: "storage",         limit: LIMIT, required: false, allowedCategories: ["bookshelf", "bookcase", "cabinet"] }, [], minPrice, maxPrice),
+    queryBucketCandidates(rugEmb,     roomType, { bucket: "soft_furnishing", limit: LIMIT, required: false, allowedCategories: ["rug"] },                           [], minPrice, maxPrice),
+  ]);
+
+  return [
+    { slot: "desk",    products: rerankBucketItems("tables",          desks,    theme, seed, roomType).slice(0, 12) },
+    { slot: "chair",   products: rerankBucketItems("seating",         chairs,   theme, seed, roomType).slice(0, 12) },
+    { slot: "lamp",    products: rerankBucketItems("lighting",        lamps,    theme, seed, roomType).slice(0, 12) },
+    { slot: "cabinet", products: rerankBucketItems("storage",         cabinets, theme, seed, roomType).slice(0, 12) },
+    { slot: "rug",     products: rerankBucketItems("soft_furnishing", rugs,     theme, seed, roomType).slice(0, 12) },
   ];
 }

@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { NextRequest, NextResponse } from "next/server";
-import { retrieveCatalogue, retrieveLivingRoomSlots, retrieveKitchenSlots, retrieveBedroomSlots, retrieveKidsRoomSlots, retrieveHallwaySlots, retrieveLoftSlots, retrieveFoyerSlots, retrieveFrontyardSlots, retrieveBackyardSlots } from "@/lib/retrieval";
+import { retrieveCatalogue, retrieveLivingRoomSlots, retrieveKitchenSlots, retrieveBedroomSlots, retrieveKidsRoomSlots, retrieveHallwaySlots, retrieveLoftSlots, retrieveFoyerSlots, retrieveFrontyardSlots, retrieveBackyardSlots, retrieveDiningRoomSlots, retrieveOfficeSlots } from "@/lib/retrieval";
 
 // Verify a product image URL is actually reachable.
 // Uses HEAD with a 3s timeout. A 2xx response is sufficient — we trust the DB
@@ -346,28 +346,36 @@ export async function POST(req: NextRequest) {
         allCandidates.map((item: any) => isImageReachable(item.image_url))
       );
 
-      // Pick first reachable product per slot for authoritativeSelection (theme-curated).
       const authoritativeSelection: any[] = [];
+      const slotOptions: Array<{ slot: string; products: any[] }> = [];
+
       for (const { slot, products } of slots) {
         const normalizedSlot = slot === "coffee_table" ? "table" : slot;
+        const reachableProducts: any[] = [];
+        let pickedFirst = false;
         for (const product of products) {
           const idx = allCandidates.findIndex(c => c.product_handle === product.product_handle);
           if (idx !== -1 && reachability[idx]) {
-            authoritativeSelection.push({
+            const enriched = {
               ...product,
               normalized_category: normalizedSlot,
               requestedCategory: normalizedSlot,
               confidence: 0.9,
-            });
-            break; // one per slot
+            };
+            reachableProducts.push(enriched);
+            if (!pickedFirst) {
+              authoritativeSelection.push(enriched);
+              pickedFirst = true;
+            }
           }
+        }
+        if (reachableProducts.length > 0) {
+          slotOptions.push({ slot: normalizedSlot, products: reachableProducts });
         }
       }
 
       console.log(`Living room slots [${theme}]: ${authoritativeSelection.map(p => `${p.requestedCategory}="${p.title?.slice(0,40)}"`).join(" | ")}`);
 
-      // Shortlist = full living room catalogue (no theme bias) so the user can browse
-      // and swap any product freely. Theme is intentionally neutralised here.
       const generalResult = await retrieveCatalogue({
         roomType,
         theme: "living room furniture sofa chair rug table lamp",
@@ -387,6 +395,7 @@ export async function POST(req: NextRequest) {
         requestedCategories,
         shortlist,
         authoritativeSelection,
+        slotOptions,
         nextRotationCursor: generalResult?.nextRotationCursor ?? 0,
       });
     }
@@ -394,54 +403,13 @@ export async function POST(req: NextRequest) {
     // ── Kitchen: explicit per-slot retrieval (stool, lamp, decor) ────────────
     if (roomType === "kitchen") {
       const slots = await retrieveKitchenSlots({ theme, minPrice, maxPrice });
-
-      const allCandidates = slots.flatMap(({ slot, products }) =>
-        products.map((p: any) => ({ ...p, _slot: slot, normalized_category: slot }))
-      );
-      const reachability = await Promise.all(
-        allCandidates.map((item: any) => isImageReachable(item.image_url))
-      );
-
-      const authoritativeSelection: any[] = [];
-      for (const { slot, products } of slots) {
-        for (const product of products) {
-          const idx = allCandidates.findIndex(c => c.product_handle === product.product_handle);
-          if (idx !== -1 && reachability[idx]) {
-            authoritativeSelection.push({
-              ...product,
-              normalized_category: slot,
-              requestedCategory: slot,
-              confidence: 0.9,
-            });
-            break; // one per slot
-          }
-        }
-      }
-
+      const allCandidates = slots.flatMap(({ slot, products }) => products.map((p: any) => ({ ...p, _slot: slot, normalized_category: slot })));
+      const reachability = await Promise.all(allCandidates.map((item: any) => isImageReachable(item.image_url)));
+      const { authoritativeSelection, slotOptions } = buildSlotSelections(slots, allCandidates, reachability);
       console.log(`Kitchen slots [${theme}]: ${authoritativeSelection.map(p => `${p.requestedCategory}="${p.title?.slice(0,40)}"`).join(" | ")} (stool=island seating, chair=dining area)`);
-
-      // Shortlist = full kitchen catalogue (no theme bias) for user browsing
-      const generalResult = await retrieveCatalogue({
-        roomType,
-        theme: "kitchen bar stool pendant light counter decor",
-        seenHandles,
-        rotationCursor,
-        pageSize,
-        minPrice,
-        maxPrice,
-      });
-      const shortlist = (generalResult?.shortlist || [])
-        .filter(hasImage)
-        .map((p: any) => ({ ...p, normalized_category: inferPrimaryCategory(p) }));
-
-      return NextResponse.json({
-        roomType,
-        theme,
-        requestedCategories,
-        shortlist,
-        authoritativeSelection,
-        nextRotationCursor: generalResult?.nextRotationCursor ?? 0,
-      });
+      const generalResult = await retrieveCatalogue({ roomType, theme: "kitchen bar stool pendant light counter decor", seenHandles, rotationCursor, pageSize, minPrice, maxPrice });
+      const shortlist = (generalResult?.shortlist || []).filter(hasImage).map((p: any) => ({ ...p, normalized_category: inferPrimaryCategory(p) }));
+      return NextResponse.json({ roomType, theme, requestedCategories, shortlist, authoritativeSelection, slotOptions, nextRotationCursor: generalResult?.nextRotationCursor ?? 0 });
     }
 
     // ── Bedroom: explicit per-slot retrieval (bed, nightstand, lamp, bedding, dresser) ──
@@ -456,18 +424,29 @@ export async function POST(req: NextRequest) {
       );
 
       const authoritativeSelection: any[] = [];
+      const slotOptions: Array<{ slot: string; products: any[] }> = [];
+
       for (const { slot, products } of slots) {
+        const reachableProducts: any[] = [];
+        let pickedFirst = false;
         for (const product of products) {
           const idx = allCandidates.findIndex(c => c.product_handle === product.product_handle);
           if (idx !== -1 && reachability[idx]) {
-            authoritativeSelection.push({
+            const enriched = {
               ...product,
               normalized_category: slot,
               requestedCategory: slot,
               confidence: 0.9,
-            });
-            break; // one per slot
+            };
+            reachableProducts.push(enriched);
+            if (!pickedFirst) {
+              authoritativeSelection.push(enriched);
+              pickedFirst = true;
+            }
           }
+        }
+        if (reachableProducts.length > 0) {
+          slotOptions.push({ slot, products: reachableProducts });
         }
       }
 
@@ -493,6 +472,7 @@ export async function POST(req: NextRequest) {
         requestedCategories,
         shortlist,
         authoritativeSelection,
+        slotOptions,
         nextRotationCursor: generalResult?.nextRotationCursor ?? 0,
       });
     }
@@ -509,18 +489,29 @@ export async function POST(req: NextRequest) {
       );
 
       const authoritativeSelection: any[] = [];
+      const slotOptions: Array<{ slot: string; products: any[] }> = [];
+
       for (const { slot, products } of slots) {
+        const reachableProducts: any[] = [];
+        let pickedFirst = false;
         for (const product of products) {
           const idx = allCandidates.findIndex(c => c.product_handle === product.product_handle);
           if (idx !== -1 && reachability[idx]) {
-            authoritativeSelection.push({
+            const enriched = {
               ...product,
               normalized_category: slot,
               requestedCategory: slot,
               confidence: 0.9,
-            });
-            break; // one per slot
+            };
+            reachableProducts.push(enriched);
+            if (!pickedFirst) {
+              authoritativeSelection.push(enriched);
+              pickedFirst = true;
+            }
           }
+        }
+        if (reachableProducts.length > 0) {
+          slotOptions.push({ slot, products: reachableProducts });
         }
       }
 
@@ -545,123 +536,125 @@ export async function POST(req: NextRequest) {
         requestedCategories,
         shortlist,
         authoritativeSelection,
+        slotOptions,
         nextRotationCursor: generalResult?.nextRotationCursor ?? 0,
       });
     }
 
-    // ── Hallway: explicit per-slot retrieval (console, mirror, lamp, rug, bench) ──
-    if (roomType === "hallway") {
-      const slots = await retrieveHallwaySlots({ theme, minPrice, maxPrice });
-      const allCandidates = slots.flatMap(({ slot, products }) =>
-        products.map((p: any) => ({ ...p, _slot: slot, normalized_category: slot }))
-      );
-      const reachability = await Promise.all(allCandidates.map((item: any) => isImageReachable(item.image_url)));
+    // ── Helper: extract authoritativeSelection + slotOptions from per-slot retrieval ──
+    function buildSlotSelections(
+      slots: Array<{ slot: string; products: any[] }>,
+      allCandidates: any[],
+      reachability: boolean[],
+      normalizeSlot?: (slot: string) => string,
+    ) {
       const authoritativeSelection: any[] = [];
+      const slotOptions: Array<{ slot: string; products: any[] }> = [];
       for (const { slot, products } of slots) {
+        const normSlot = normalizeSlot ? normalizeSlot(slot) : slot;
+        const reachableProducts: any[] = [];
+        let pickedFirst = false;
         for (const product of products) {
-          const idx = allCandidates.findIndex(c => c.product_handle === product.product_handle);
+          const idx = allCandidates.findIndex((c: any) => c.product_handle === product.product_handle);
           if (idx !== -1 && reachability[idx]) {
-            authoritativeSelection.push({ ...product, normalized_category: slot, requestedCategory: slot, confidence: 0.9 });
-            break;
+            const enriched = { ...product, normalized_category: normSlot, requestedCategory: normSlot, confidence: 0.9 };
+            reachableProducts.push(enriched);
+            if (!pickedFirst) { authoritativeSelection.push(enriched); pickedFirst = true; }
           }
         }
+        if (reachableProducts.length > 0) slotOptions.push({ slot: normSlot, products: reachableProducts });
       }
+      // Log per-slot counts: total candidates vs reachable
+      const slotLog = slotOptions.map(s => `${s.slot}=${s.products.length}`).join(" ");
+      const totalCandidates = slots.reduce((n, s) => n + s.products.length, 0);
+      const totalReachable = slotOptions.reduce((n, s) => n + s.products.length, 0);
+      console.log(`[slotOptions] ${totalReachable}/${totalCandidates} reachable — ${slotLog}`);
+
+      return { authoritativeSelection, slotOptions };
+    }
+
+    // ── Hallway ──
+    if (roomType === "hallway") {
+      const slots = await retrieveHallwaySlots({ theme, minPrice, maxPrice });
+      const allCandidates = slots.flatMap(({ slot, products }) => products.map((p: any) => ({ ...p, _slot: slot, normalized_category: slot })));
+      const reachability = await Promise.all(allCandidates.map((item: any) => isImageReachable(item.image_url)));
+      const { authoritativeSelection, slotOptions } = buildSlotSelections(slots, allCandidates, reachability);
       console.log(`Hallway slots [${theme}]: ${authoritativeSelection.map(p => `${p.requestedCategory}="${p.title?.slice(0, 40)}"`).join(" | ")}`);
       const generalResult = await retrieveCatalogue({ roomType, theme: "hallway console mirror lamp rug bench", seenHandles, rotationCursor, pageSize, minPrice, maxPrice });
       const shortlist = (generalResult?.shortlist || []).filter(hasImage).map((p: any) => ({ ...p, normalized_category: inferPrimaryCategory(p) }));
-      return NextResponse.json({ roomType, theme, requestedCategories, shortlist, authoritativeSelection, nextRotationCursor: generalResult?.nextRotationCursor ?? 0 });
+      return NextResponse.json({ roomType, theme, requestedCategories, shortlist, authoritativeSelection, slotOptions, nextRotationCursor: generalResult?.nextRotationCursor ?? 0 });
     }
 
-    // ── Foyer: explicit per-slot retrieval (table, lamp, wall_art, mirror, bench) ──
+    // ── Foyer ──
     if (roomType === "foyer") {
       const slots = await retrieveFoyerSlots({ theme, minPrice, maxPrice });
-      const allCandidates = slots.flatMap(({ slot, products }) =>
-        products.map((p: any) => ({ ...p, _slot: slot, normalized_category: slot }))
-      );
+      const allCandidates = slots.flatMap(({ slot, products }) => products.map((p: any) => ({ ...p, _slot: slot, normalized_category: slot })));
       const reachability = await Promise.all(allCandidates.map((item: any) => isImageReachable(item.image_url)));
-      const authoritativeSelection: any[] = [];
-      for (const { slot, products } of slots) {
-        for (const product of products) {
-          const idx = allCandidates.findIndex(c => c.product_handle === product.product_handle);
-          if (idx !== -1 && reachability[idx]) {
-            authoritativeSelection.push({ ...product, normalized_category: slot, requestedCategory: slot, confidence: 0.9 });
-            break;
-          }
-        }
-      }
+      const { authoritativeSelection, slotOptions } = buildSlotSelections(slots, allCandidates, reachability);
       console.log(`Foyer slots [${theme}]: ${authoritativeSelection.map(p => `${p.requestedCategory}="${p.title?.slice(0, 40)}"`).join(" | ")}`);
       const generalResult = await retrieveCatalogue({ roomType, theme: "foyer entryway console lamp wall art mirror bench", seenHandles, rotationCursor, pageSize, minPrice, maxPrice });
       const shortlist = (generalResult?.shortlist || []).filter(hasImage).map((p: any) => ({ ...p, normalized_category: inferPrimaryCategory(p) }));
-      return NextResponse.json({ roomType, theme, requestedCategories, shortlist, authoritativeSelection, nextRotationCursor: generalResult?.nextRotationCursor ?? 0 });
+      return NextResponse.json({ roomType, theme, requestedCategories, shortlist, authoritativeSelection, slotOptions, nextRotationCursor: generalResult?.nextRotationCursor ?? 0 });
     }
 
-    // ── Loft: explicit per-slot retrieval (table, lamp, wall_art, mirror, bench) ──
+    // ── Loft ──
     if (roomType === "loft") {
       const slots = await retrieveLoftSlots({ theme, minPrice, maxPrice });
-      const allCandidates = slots.flatMap(({ slot, products }) =>
-        products.map((p: any) => ({ ...p, _slot: slot, normalized_category: slot }))
-      );
+      const allCandidates = slots.flatMap(({ slot, products }) => products.map((p: any) => ({ ...p, _slot: slot, normalized_category: slot })));
       const reachability = await Promise.all(allCandidates.map((item: any) => isImageReachable(item.image_url)));
-      const authoritativeSelection: any[] = [];
-      for (const { slot, products } of slots) {
-        for (const product of products) {
-          const idx = allCandidates.findIndex(c => c.product_handle === product.product_handle);
-          if (idx !== -1 && reachability[idx]) {
-            authoritativeSelection.push({ ...product, normalized_category: slot, requestedCategory: slot, confidence: 0.9 });
-            break;
-          }
-        }
-      }
+      const { authoritativeSelection, slotOptions } = buildSlotSelections(slots, allCandidates, reachability);
       console.log(`Loft slots [${theme}]: ${authoritativeSelection.map(p => `${p.requestedCategory}="${p.title?.slice(0, 40)}"`).join(" | ")}`);
       const generalResult = await retrieveCatalogue({ roomType, theme: "loft mezzanine console lamp wall art mirror bench", seenHandles, rotationCursor, pageSize, minPrice, maxPrice });
       const shortlist = (generalResult?.shortlist || []).filter(hasImage).map((p: any) => ({ ...p, normalized_category: inferPrimaryCategory(p) }));
-      return NextResponse.json({ roomType, theme, requestedCategories, shortlist, authoritativeSelection, nextRotationCursor: generalResult?.nextRotationCursor ?? 0 });
+      return NextResponse.json({ roomType, theme, requestedCategories, shortlist, authoritativeSelection, slotOptions, nextRotationCursor: generalResult?.nextRotationCursor ?? 0 });
     }
 
-    // ── Frontyard: explicit per-slot retrieval (seating, table, lighting, planter) ──
+    // ── Frontyard ──
     if (roomType === "frontyard") {
       const slots = await retrieveFrontyardSlots({ theme, minPrice, maxPrice });
-      const allCandidates = slots.flatMap(({ slot, products }) =>
-        products.map((p: any) => ({ ...p, _slot: slot, normalized_category: slot }))
-      );
+      const allCandidates = slots.flatMap(({ slot, products }) => products.map((p: any) => ({ ...p, _slot: slot, normalized_category: slot })));
       const reachability = await Promise.all(allCandidates.map((item: any) => isImageReachable(item.image_url)));
-      const authoritativeSelection: any[] = [];
-      for (const { slot, products } of slots) {
-        for (const product of products) {
-          const idx = allCandidates.findIndex(c => c.product_handle === product.product_handle);
-          if (idx !== -1 && reachability[idx]) {
-            authoritativeSelection.push({ ...product, normalized_category: slot, requestedCategory: slot, confidence: 0.9 });
-            break;
-          }
-        }
-      }
+      const { authoritativeSelection, slotOptions } = buildSlotSelections(slots, allCandidates, reachability);
       console.log(`Frontyard slots [${theme}]: ${authoritativeSelection.map(p => `${p.requestedCategory}="${p.title?.slice(0, 40)}"`).join(" | ")}`);
       const generalResult = await retrieveCatalogue({ roomType, theme: "outdoor porch garden seating table planter lighting", seenHandles, rotationCursor, pageSize, minPrice, maxPrice });
       const shortlist = (generalResult?.shortlist || []).filter(hasImage).map((p: any) => ({ ...p, normalized_category: inferPrimaryCategory(p) }));
-      return NextResponse.json({ roomType, theme, requestedCategories, shortlist, authoritativeSelection, nextRotationCursor: generalResult?.nextRotationCursor ?? 0 });
+      return NextResponse.json({ roomType, theme, requestedCategories, shortlist, authoritativeSelection, slotOptions, nextRotationCursor: generalResult?.nextRotationCursor ?? 0 });
     }
 
-    // ── Backyard: explicit per-slot retrieval (seating, table, lighting, planter, fire_pit) ──
+    // ── Backyard ──
     if (roomType === "backyard") {
       const slots = await retrieveBackyardSlots({ theme, minPrice, maxPrice });
-      const allCandidates = slots.flatMap(({ slot, products }) =>
-        products.map((p: any) => ({ ...p, _slot: slot, normalized_category: slot }))
-      );
+      const allCandidates = slots.flatMap(({ slot, products }) => products.map((p: any) => ({ ...p, _slot: slot, normalized_category: slot })));
       const reachability = await Promise.all(allCandidates.map((item: any) => isImageReachable(item.image_url)));
-      const authoritativeSelection: any[] = [];
-      for (const { slot, products } of slots) {
-        for (const product of products) {
-          const idx = allCandidates.findIndex(c => c.product_handle === product.product_handle);
-          if (idx !== -1 && reachability[idx]) {
-            authoritativeSelection.push({ ...product, normalized_category: slot, requestedCategory: slot, confidence: 0.9 });
-            break;
-          }
-        }
-      }
+      const { authoritativeSelection, slotOptions } = buildSlotSelections(slots, allCandidates, reachability);
       console.log(`Backyard slots [${theme}]: ${authoritativeSelection.map(p => `${p.requestedCategory}="${p.title?.slice(0, 40)}"`).join(" | ")}`);
       const generalResult = await retrieveCatalogue({ roomType, theme: "outdoor patio garden sofa dining table planter fire pit lighting", seenHandles, rotationCursor, pageSize, minPrice, maxPrice });
       const shortlist = (generalResult?.shortlist || []).filter(hasImage).map((p: any) => ({ ...p, normalized_category: inferPrimaryCategory(p) }));
-      return NextResponse.json({ roomType, theme, requestedCategories, shortlist, authoritativeSelection, nextRotationCursor: generalResult?.nextRotationCursor ?? 0 });
+      return NextResponse.json({ roomType, theme, requestedCategories, shortlist, authoritativeSelection, slotOptions, nextRotationCursor: generalResult?.nextRotationCursor ?? 0 });
+    }
+
+    // ── Dining Room ──
+    if (roomType === "dining_room") {
+      const slots = await retrieveDiningRoomSlots({ theme, minPrice, maxPrice });
+      const allCandidates = slots.flatMap(({ slot, products }) => products.map((p: any) => ({ ...p, _slot: slot, normalized_category: slot })));
+      const reachability = await Promise.all(allCandidates.map((item: any) => isImageReachable(item.image_url)));
+      const { authoritativeSelection, slotOptions } = buildSlotSelections(slots, allCandidates, reachability);
+      console.log(`Dining room slots [${theme}]: ${authoritativeSelection.map(p => `${p.requestedCategory}="${p.title?.slice(0, 40)}"`).join(" | ")}`);
+      const generalResult = await retrieveCatalogue({ roomType, theme: "dining room table chair sideboard lamp rug", seenHandles, rotationCursor, pageSize, minPrice, maxPrice });
+      const shortlist = (generalResult?.shortlist || []).filter(hasImage).map((p: any) => ({ ...p, normalized_category: inferPrimaryCategory(p) }));
+      return NextResponse.json({ roomType, theme, requestedCategories, shortlist, authoritativeSelection, slotOptions, nextRotationCursor: generalResult?.nextRotationCursor ?? 0 });
+    }
+
+    // ── Office ──
+    if (roomType === "office") {
+      const slots = await retrieveOfficeSlots({ theme, minPrice, maxPrice });
+      const allCandidates = slots.flatMap(({ slot, products }) => products.map((p: any) => ({ ...p, _slot: slot, normalized_category: slot })));
+      const reachability = await Promise.all(allCandidates.map((item: any) => isImageReachable(item.image_url)));
+      const { authoritativeSelection, slotOptions } = buildSlotSelections(slots, allCandidates, reachability);
+      console.log(`Office slots [${theme}]: ${authoritativeSelection.map(p => `${p.requestedCategory}="${p.title?.slice(0, 40)}"`).join(" | ")}`);
+      const generalResult = await retrieveCatalogue({ roomType, theme: "office desk chair lamp bookshelf rug", seenHandles, rotationCursor, pageSize, minPrice, maxPrice });
+      const shortlist = (generalResult?.shortlist || []).filter(hasImage).map((p: any) => ({ ...p, normalized_category: inferPrimaryCategory(p) }));
+      return NextResponse.json({ roomType, theme, requestedCategories, shortlist, authoritativeSelection, slotOptions, nextRotationCursor: generalResult?.nextRotationCursor ?? 0 });
     }
 
     // ── General retrieval (all other rooms) ──────────────────────────────────
