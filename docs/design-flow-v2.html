@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Design Flow V2 — Specification</title>
+  <style>
+    :root {
+      --primary: #2563eb;
+      --primary-light: #dbeafe;
+      --success: #16a34a;
+      --success-light: #dcfce7;
+      --warning: #d97706;
+      --warning-light: #fef3c7;
+      --new: #9333ea;
+      --new-light: #f3e8ff;
+      --grey-50: #f9fafb;
+      --grey-100: #f3f4f6;
+      --grey-200: #e5e7eb;
+      --grey-300: #d1d5db;
+      --grey-500: #6b7280;
+      --grey-700: #374151;
+      --grey-900: #111827;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--grey-50);
+      color: var(--grey-900);
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 40px 24px;
+    }
+
+    h1 {
+      font-size: 32px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    h1 span { color: var(--primary); }
+
+    .subtitle {
+      color: var(--grey-500);
+      font-size: 16px;
+      margin-bottom: 48px;
+    }
+
+    /* ── Flow Diagram ─────────────────────────── */
+    .flow {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      margin-bottom: 60px;
+    }
+
+    .flow-step {
+      position: relative;
+      background: #fff;
+      border: 1px solid var(--grey-200);
+      border-radius: 12px;
+      padding: 28px 32px;
+      margin-bottom: 0;
+    }
+
+    .flow-connector {
+      display: flex;
+      justify-content: center;
+      padding: 4px 0;
+    }
+
+    .flow-connector svg { display: block; }
+
+    .flow-connector.split {
+      display: flex;
+      justify-content: center;
+      padding: 8px 0;
+    }
+
+    .step-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 4px 10px;
+      border-radius: 6px;
+      margin-bottom: 12px;
+    }
+
+    .badge-exists { background: var(--success-light); color: var(--success); }
+    .badge-new { background: var(--new-light); color: var(--new); }
+    .badge-change { background: var(--warning-light); color: var(--warning); }
+
+    .step-title {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .step-desc {
+      color: var(--grey-500);
+      font-size: 14px;
+      margin-bottom: 16px;
+    }
+
+    .step-details {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .detail-card {
+      flex: 1 1 200px;
+      background: var(--grey-50);
+      border: 1px solid var(--grey-200);
+      border-radius: 8px;
+      padding: 14px 16px;
+    }
+
+    .detail-card h4 {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .detail-card p {
+      font-size: 13px;
+      color: var(--grey-500);
+      line-height: 1.5;
+    }
+
+    .tag-exists {
+      font-size: 10px;
+      background: var(--success-light);
+      color: var(--success);
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+
+    .tag-new {
+      font-size: 10px;
+      background: var(--new-light);
+      color: var(--new);
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+
+    /* ── Split paths ──────────────────────────── */
+    .split-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .path-card {
+      background: #fff;
+      border: 2px solid var(--grey-200);
+      border-radius: 12px;
+      padding: 24px;
+      transition: border-color 0.2s;
+    }
+
+    .path-card:hover { border-color: var(--primary); }
+
+    .path-label {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--primary);
+      margin-bottom: 8px;
+    }
+
+    .path-card h3 {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    .path-card .time {
+      font-size: 13px;
+      color: var(--warning);
+      font-weight: 600;
+      margin-bottom: 10px;
+    }
+
+    .path-card ul {
+      list-style: none;
+      padding: 0;
+    }
+
+    .path-card li {
+      font-size: 13px;
+      color: var(--grey-500);
+      padding: 3px 0;
+      padding-left: 18px;
+      position: relative;
+    }
+
+    .path-card li::before {
+      content: ">";
+      position: absolute;
+      left: 0;
+      color: var(--primary);
+      font-weight: 700;
+    }
+
+    /* ── Stop banner ──────────────────────────── */
+    .stop-banner {
+      background: #fef2f2;
+      border: 2px solid #fca5a5;
+      border-radius: 10px;
+      padding: 16px 20px;
+      margin-top: 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .stop-icon {
+      width: 40px;
+      height: 40px;
+      background: #ef4444;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      color: #fff;
+      font-size: 20px;
+      font-weight: 700;
+    }
+
+    .stop-text h4 { font-size: 14px; color: #dc2626; margin-bottom: 2px; }
+    .stop-text p { font-size: 13px; color: #7f1d1d; }
+
+    /* ── Action buttons mock ──────────────────── */
+    .mock-buttons {
+      display: flex;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .mock-btn {
+      padding: 8px 20px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      border: none;
+      cursor: default;
+    }
+
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-outline { background: #fff; color: var(--grey-700); border: 1px solid var(--grey-300); }
+    .btn-success { background: var(--success); color: #fff; }
+    .btn-purple { background: var(--new); color: #fff; }
+
+    /* ── Sections ──────────────────────────────── */
+    .section-title {
+      font-size: 24px;
+      font-weight: 700;
+      margin-top: 60px;
+      margin-bottom: 24px;
+      padding-bottom: 12px;
+      border-bottom: 2px solid var(--grey-200);
+    }
+
+    /* ── Changes table ────────────────────────── */
+    .changes-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 32px;
+      font-size: 14px;
+    }
+
+    .changes-table th {
+      text-align: left;
+      background: var(--grey-100);
+      padding: 10px 14px;
+      font-weight: 600;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--grey-500);
+    }
+
+    .changes-table td {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--grey-200);
+      vertical-align: top;
+    }
+
+    .changes-table tr:last-child td { border-bottom: none; }
+
+    .scope-frontend { color: var(--primary); font-weight: 600; font-size: 12px; }
+    .scope-backend { color: var(--success); font-weight: 600; font-size: 12px; }
+    .scope-both { color: var(--new); font-weight: 600; font-size: 12px; }
+
+    /* ── Open questions ───────────────────────── */
+    .question-list {
+      list-style: none;
+      padding: 0;
+    }
+
+    .question-list li {
+      background: #fff;
+      border: 1px solid var(--grey-200);
+      border-radius: 10px;
+      padding: 16px 20px;
+      margin-bottom: 10px;
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+    }
+
+    .q-num {
+      width: 28px;
+      height: 28px;
+      background: var(--warning-light);
+      color: var(--warning);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .q-text h4 { font-size: 14px; margin-bottom: 2px; }
+    .q-text p { font-size: 13px; color: var(--grey-500); }
+
+    /* ── API table ────────────────────────────── */
+    .api-card {
+      background: #fff;
+      border: 1px solid var(--grey-200);
+      border-radius: 10px;
+      padding: 18px 22px;
+      margin-bottom: 12px;
+    }
+
+    .api-card h4 {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 14px;
+      color: var(--primary);
+      margin-bottom: 4px;
+    }
+
+    .api-card .api-status {
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .api-card p { font-size: 13px; color: var(--grey-500); }
+
+    /* ── Legend ────────────────────────────────── */
+    .legend {
+      display: flex;
+      gap: 20px;
+      margin-bottom: 32px;
+      flex-wrap: wrap;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      color: var(--grey-700);
+    }
+
+    .legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+
+    .dot-exists { background: var(--success); }
+    .dot-new { background: var(--new); }
+    .dot-change { background: var(--warning); }
+
+    @media (max-width: 700px) {
+      .split-container { grid-template-columns: 1fr; }
+      .step-details { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+
+    <h1>Design Flow <span>V2</span></h1>
+    <p class="subtitle">Multi-step guided room design with customer control, budget awareness, and purchase integration</p>
+
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot dot-exists"></div> Exists (no change)</div>
+      <div class="legend-item"><div class="legend-dot dot-new"></div> New feature</div>
+      <div class="legend-item"><div class="legend-dot dot-change"></div> Modified</div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- FLOW DIAGRAM                                -->
+    <!-- ═══════════════════════════════════════════ -->
+
+    <div class="flow">
+
+      <!-- STEP 1: Setup -->
+      <div class="flow-step">
+        <span class="step-badge badge-change">Step 1 &mdash; Setup</span>
+        <h3 class="step-title">Room Setup &amp; Preferences</h3>
+        <p class="step-desc">User uploads their room, selects theme, and sets budget. Catalogue is retrieved automatically (hidden from customer).</p>
+        <div class="step-details">
+          <div class="detail-card">
+            <h4>Upload Photo <span class="tag-exists">EXISTS</span></h4>
+            <p>User uploads a room photo. Room type auto-detected (bedroom, living room, kids room, etc.)</p>
+          </div>
+          <div class="detail-card">
+            <h4>Select Theme <span class="tag-exists">EXISTS</span></h4>
+            <p>Predefined themes (scandi, coastal, boho, etc.) or free-text custom theme input</p>
+          </div>
+          <div class="detail-card">
+            <h4>Set Budget <span class="tag-new">NEW</span></h4>
+            <p>Price range filter (min/max). Backend params exist &mdash; needs frontend UI (slider or input fields)</p>
+          </div>
+          <div class="detail-card">
+            <h4>Catalogue Retrieved <span class="tag-exists">EXISTS</span></h4>
+            <p>Products fetched based on room + theme + budget. Not visible to customer. Runs via <code>/api/retrieve-catalogue</code></p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Connector -->
+      <div class="flow-connector">
+        <svg width="24" height="40" viewBox="0 0 24 40"><path d="M12 0 L12 32 M6 26 L12 34 L18 26" stroke="#d1d5db" stroke-width="2" fill="none"/></svg>
+      </div>
+
+      <!-- STEP 2: AI Design -->
+      <div class="flow-step">
+        <span class="step-badge badge-change">Step 2 &mdash; AI Design (~26 seconds)</span>
+        <h3 class="step-title">Generate Inspiring Preview</h3>
+        <p class="step-desc">AI generates a theme-styled version of the room using <code>/api/fal-inspire</code>. This is a quick preview without specific catalogue products.</p>
+        <div class="step-details">
+          <div class="detail-card">
+            <h4>Generation <span class="tag-exists">EXISTS</span></h4>
+            <p>FLUX generates themed room (~26s). Shows "Creating inspiring room..." during generation.</p>
+          </div>
+          <div class="detail-card">
+            <h4>Preview Shown <span class="tag-exists">EXISTS</span></h4>
+            <p>User sees the AI-styled version of their room with the selected theme applied.</p>
+          </div>
+        </div>
+
+        <div class="stop-banner">
+          <div class="stop-icon">||</div>
+          <div class="stop-text">
+            <h4>STOP &mdash; Customer Decision Point (NEW)</h4>
+            <p>Execution pauses here. Customer reviews the AI Design. No further backend processing until customer acts. Currently the pipeline auto-continues &mdash; this is the key flow change.</p>
+          </div>
+        </div>
+
+        <div class="mock-buttons">
+          <div class="mock-btn btn-primary">Approve &amp; Continue</div>
+          <div class="mock-btn btn-outline">Regenerate</div>
+        </div>
+      </div>
+
+      <!-- Connector Split -->
+      <div class="flow-connector split">
+        <svg width="400" height="60" viewBox="0 0 400 60">
+          <path d="M200 0 L200 20" stroke="#d1d5db" stroke-width="2" fill="none"/>
+          <path d="M200 20 L100 20 L100 52 M94 46 L100 54 L106 46" stroke="#2563eb" stroke-width="2" fill="none"/>
+          <path d="M200 20 L300 20 L300 52 M294 46 L300 54 L306 46" stroke="#9333ea" stroke-width="2" fill="none"/>
+          <text x="110" y="16" font-size="11" fill="#6b7280" font-family="sans-serif">User approves</text>
+        </svg>
+      </div>
+
+      <!-- STEP 3: Two Paths -->
+      <div class="split-container">
+        <!-- Path A -->
+        <div class="path-card">
+          <div class="path-label">Path A</div>
+          <h3>Generate Design (Auto)</h3>
+          <div class="time">~2&ndash;3 minutes</div>
+          <ul>
+            <li>User clicks "Generate Design"</li>
+            <li>All catalogue products placed automatically</li>
+            <li>Runs full Pass 1 pipeline (FLUX + Gemini validation)</li>
+            <li>Pass 2 targeted edits if needed</li>
+            <li>Zero product selection required</li>
+            <li>Best for users who trust the AI curation</li>
+          </ul>
+          <div class="mock-buttons">
+            <div class="mock-btn btn-primary">Generate Design</div>
+          </div>
+        </div>
+
+        <!-- Path B -->
+        <div class="path-card">
+          <div class="path-label">Path B</div>
+          <h3>Choose Products (Manual)</h3>
+          <div class="time">Browse + ~2&ndash;3 min generation</div>
+          <ul>
+            <li>User clicks "Choose Products"</li>
+            <li>Catalogue grid shown: images, titles, prices</li>
+            <li>User selects/deselects specific items</li>
+            <li>Budget total updates in real-time</li>
+            <li>Clicks "Generate with Selected"</li>
+            <li>Same pipeline, user-chosen products only</li>
+          </ul>
+          <div class="mock-buttons">
+            <div class="mock-btn btn-purple">Choose Products</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Connector Merge -->
+      <div class="flow-connector split">
+        <svg width="400" height="60" viewBox="0 0 400 60">
+          <path d="M100 0 L100 30 L200 30" stroke="#2563eb" stroke-width="2" fill="none"/>
+          <path d="M300 0 L300 30 L200 30" stroke="#9333ea" stroke-width="2" fill="none"/>
+          <path d="M200 30 L200 52 M194 46 L200 54 L206 46" stroke="#d1d5db" stroke-width="2" fill="none"/>
+        </svg>
+      </div>
+
+      <!-- STEP 4: Result + Edits -->
+      <div class="flow-step">
+        <span class="step-badge badge-exists">Step 4 &mdash; Post-Generation</span>
+        <h3 class="step-title">Generated Room &amp; Refinements</h3>
+        <p class="step-desc">User sees the final styled room with catalogue products placed. Can make quick edits or swap individual products.</p>
+        <div class="step-details">
+          <div class="detail-card">
+            <h4>Quick Edit <span class="tag-exists">EXISTS</span></h4>
+            <p>Text instruction: "change the rug to blue", "make the lamp taller". Uses <code>/api/targeted-edit</code></p>
+          </div>
+          <div class="detail-card">
+            <h4>Try in Room <span class="tag-exists">EXISTS</span></h4>
+            <p>Swap a specific product from catalogue into the generated image. ~25&ndash;30s per product swap.</p>
+          </div>
+          <div class="detail-card">
+            <h4>Browse More <span class="tag-exists">EXISTS</span></h4>
+            <p>Load more products from catalogue for the same room/theme. User can swap any product.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Connector -->
+      <div class="flow-connector">
+        <svg width="24" height="40" viewBox="0 0 24 40"><path d="M12 0 L12 32 M6 26 L12 34 L18 26" stroke="#d1d5db" stroke-width="2" fill="none"/></svg>
+      </div>
+
+      <!-- STEP 5: Purchase -->
+      <div class="flow-step">
+        <span class="step-badge badge-new">Step 5 &mdash; Purchase (New)</span>
+        <h3 class="step-title">Shop the Look</h3>
+        <p class="step-desc">Customer can buy all placed products at once or select individual items to purchase.</p>
+        <div class="step-details">
+          <div class="detail-card">
+            <h4>Shop the Look <span class="tag-new">NEW</span></h4>
+            <p>One-click "Add All to Cart" &mdash; adds every placed product to the shopping cart instantly.</p>
+          </div>
+          <div class="detail-card">
+            <h4>Buy Selective <span class="tag-new">NEW</span></h4>
+            <p>Each product shown with image, title, price, and individual "Add to Cart" button. User picks what they want.</p>
+          </div>
+          <div class="detail-card">
+            <h4>Cart Integration <span class="tag-new">NEW</span></h4>
+            <p>Requires e-commerce platform integration (Shopify / custom). Product URLs, prices, and cart API needed.</p>
+          </div>
+        </div>
+        <div class="mock-buttons">
+          <div class="mock-btn btn-success">Shop the Look &mdash; Add All ($2,175)</div>
+          <div class="mock-btn btn-outline">Buy Individual Items</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- CHANGES REQUIRED                            -->
+    <!-- ═══════════════════════════════════════════ -->
+
+    <h2 class="section-title">Changes Required</h2>
+
+    <table class="changes-table">
+      <thead>
+        <tr>
+          <th>Change</th>
+          <th>Scope</th>
+          <th>Details</th>
+          <th>Effort</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Budget UI</strong></td>
+          <td><span class="scope-frontend">Frontend</span></td>
+          <td>Price range slider/inputs on setup screen. Backend <code>minPrice</code>/<code>maxPrice</code> params already exist in <code>/api/retrieve-catalogue</code></td>
+          <td>Small</td>
+        </tr>
+        <tr>
+          <td><strong>Pause after Inspire</strong></td>
+          <td><span class="scope-frontend">Frontend</span></td>
+          <td>Show AI Design with "Approve" / "Regenerate" buttons. Stop auto-firing product placement. Key flow change.</td>
+          <td>Medium</td>
+        </tr>
+        <tr>
+          <td><strong>Two-path choice UI</strong></td>
+          <td><span class="scope-frontend">Frontend</span></td>
+          <td>After approval, show "Generate Design" and "Choose Products" buttons</td>
+          <td>Small</td>
+        </tr>
+        <tr>
+          <td><strong>Product selection screen</strong></td>
+          <td><span class="scope-frontend">Frontend</span></td>
+          <td>Catalogue grid with images, titles, prices, select/deselect checkboxes. Budget total display. For Path B only.</td>
+          <td>Medium</td>
+        </tr>
+        <tr>
+          <td><strong>Shop the Look UI</strong></td>
+          <td><span class="scope-both">Frontend + Backend</span></td>
+          <td>Product cards with prices, "Add All to Cart" and individual "Add to Cart" buttons. Requires cart API integration.</td>
+          <td>Large</td>
+        </tr>
+        <tr>
+          <td><strong>Cart integration</strong></td>
+          <td><span class="scope-backend">Backend</span></td>
+          <td>Depends on e-commerce platform. New API endpoint for cart operations.</td>
+          <td>Large (TBD)</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- EXISTING APIs                                -->
+    <!-- ═══════════════════════════════════════════ -->
+
+    <h2 class="section-title">API Endpoints</h2>
+
+    <div class="api-card">
+      <h4>POST /api/detect-room-type</h4>
+      <div class="api-status" style="color: var(--success);">EXISTS &mdash; No changes needed</div>
+      <p>Auto-detects room type from uploaded image (bedroom, living room, kids room, kitchen, etc.)</p>
+    </div>
+
+    <div class="api-card">
+      <h4>POST /api/retrieve-catalogue</h4>
+      <div class="api-status" style="color: var(--success);">EXISTS &mdash; No changes needed</div>
+      <p>Retrieves products by room + theme. Already supports <code>minPrice</code> / <code>maxPrice</code> params for budget filtering.</p>
+    </div>
+
+    <div class="api-card">
+      <h4>POST /api/fal-inspire</h4>
+      <div class="api-status" style="color: var(--success);">EXISTS &mdash; No changes needed</div>
+      <p>Generates theme-styled room preview (~26s). Used in Step 2.</p>
+    </div>
+
+    <div class="api-card">
+      <h4>POST /api/fal-place-products</h4>
+      <div class="api-status" style="color: var(--success);">EXISTS &mdash; No changes needed</div>
+      <p>Places catalogue products in the room (~2&ndash;3 min). Accepts any product array &mdash; works for both Path A (all products) and Path B (user-selected subset).</p>
+    </div>
+
+    <div class="api-card">
+      <h4>POST /api/targeted-edit</h4>
+      <div class="api-status" style="color: var(--success);">EXISTS &mdash; No changes needed</div>
+      <p>Swaps individual products or applies text edits to generated room (~25&ndash;30s). Used in Step 4.</p>
+    </div>
+
+    <div class="api-card">
+      <h4>POST /api/cart (or Shopify API)</h4>
+      <div class="api-status" style="color: var(--new);">NEW &mdash; Needs implementation</div>
+      <p>Cart operations: add product(s), get cart total, checkout redirect. Platform TBD (Shopify / custom).</p>
+    </div>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- OPEN QUESTIONS                              -->
+    <!-- ═══════════════════════════════════════════ -->
+
+    <h2 class="section-title">Open Questions</h2>
+
+    <ul class="question-list">
+      <li>
+        <div class="q-num">1</div>
+        <div class="q-text">
+          <h4>Cart Integration Platform</h4>
+          <p>Shopify, custom backend, or just link to product pages? This determines the "Shop the Look" implementation.</p>
+        </div>
+      </li>
+      <li>
+        <div class="q-num">2</div>
+        <div class="q-text">
+          <h4>Regenerate Limit</h4>
+          <p>Can the user regenerate the AI Design unlimited times, or should it be capped (e.g., 3 regenerations)?</p>
+        </div>
+      </li>
+      <li>
+        <div class="q-num">3</div>
+        <div class="q-text">
+          <h4>Path B Product Limit</h4>
+          <p>Maximum how many products can the user manually select? Currently the pipeline supports up to 8.</p>
+        </div>
+      </li>
+      <li>
+        <div class="q-num">4</div>
+        <div class="q-text">
+          <h4>Budget UI Format</h4>
+          <p>Slider with preset ranges ($1k&ndash;$3k, $3k&ndash;$5k, $5k+) or free-form min/max input fields?</p>
+        </div>
+      </li>
+    </ul>
+
+    <p style="text-align: center; color: var(--grey-500); margin-top: 48px; font-size: 13px;">
+      Interior AI &mdash; Design Flow V2 Specification &mdash; April 2026
+    </p>
+
+  </div>
+</body>
+</html>

@@ -67,10 +67,20 @@ function buildGeometryLock(roomType: string): string[] {
       `• Camera angle, perspective — IDENTICAL to @image1`,
     ];
   }
+  if (roomType === "foyer") {
+    return [
+      `═══ GEOMETRY LOCK — ABSOLUTE ═══`,
+      `The foyer / entryway structure is FIXED. Do NOT change:`,
+      `• Walls, wall colour, front door, door frame, archways — unchanged`,
+      `• Windows, window frames — unchanged`,
+      `• Floor material and ceiling — unchanged`,
+      `• Camera angle, perspective — IDENTICAL to @image1`,
+    ];
+  }
   if (roomType === "loft") {
     return [
       `═══ GEOMETRY LOCK — ABSOLUTE ═══`,
-      `The loft/foyer structure is FIXED. Do NOT change:`,
+      `The loft / mezzanine structure is FIXED. Do NOT change:`,
       `• Walls, wall colour, architectural columns or pillars — unchanged`,
       `• Staircase, mezzanine railings — unchanged`,
       `• Floor material and ceiling — unchanged`,

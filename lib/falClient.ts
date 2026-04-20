@@ -25,7 +25,7 @@ export function extractFalImageUrl(result: any): string {
 
 /** Fetch a fal.ai CDN URL and return it as a base64 data URI */
 export async function falUrlToDataUri(url: string): Promise<string> {
-  const res = await fetch(url, { signal: AbortSignal.timeout(30000) });
+  const res = await fetch(url, { signal: AbortSignal.timeout(180000) });
   if (!res.ok) throw new Error(`Failed to fetch fal image: ${res.status}`);
   const buffer = await res.arrayBuffer();
   const mime = res.headers.get("content-type") ?? "image/png";

@@ -1,6 +1,6 @@
 export type RoomType =
   | "living_room" | "bedroom" | "dining_room" | "kitchen" | "office"
-  | "loft" | "hallway" | "frontyard" | "backyard" | "kids_room";
+  | "foyer" | "loft" | "hallway" | "frontyard" | "backyard" | "kids_room";
 
 export type CatalogueProduct = {
   bucket: string;
@@ -13,6 +13,7 @@ export type CatalogueProduct = {
   min_price?: number | null;
   max_price?: number | null;
   similarity?: number;
+  style_tags?: string[];
 };
 
 export type AuthoritativeProduct = CatalogueProduct & {

@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "audit:catalogue": "npx tsx scripts/audit-catalogue.ts"
   },
   "dependencies": {
     "@fal-ai/client": "^1.9.5",

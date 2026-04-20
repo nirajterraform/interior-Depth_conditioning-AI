@@ -14,6 +14,7 @@ type RoomType =
   | "dining_room"
   | "kitchen"
   | "office"
+  | "foyer"
   | "loft"
   | "hallway"
   | "frontyard"
@@ -26,6 +27,7 @@ const VALID_ROOM_TYPES = new Set<RoomType>([
   "dining_room",
   "kitchen",
   "office",
+  "foyer",
   "loft",
   "hallway",
   "frontyard",
@@ -49,15 +51,18 @@ Choose exactly one of these space types:
 - dining_room: a room for eating — PRIMARY feature is a dining table with chairs arranged around it
 - kitchen: a room for cooking — PRIMARY feature is countertops, appliances, or a kitchen island
 - office: a home office or study — PRIMARY feature is a desk
-- loft: a foyer nook, landing, mezzanine, or open transitional space inside a home — visual cues: columns/pillars, a console table or decorative cabinet as the ONLY major furniture (no sofa), multiple doorways/openings visible, or open area above a staircase
+- foyer: the entryway / entrance hall directly at or near the front door of a home — visual cues: front door clearly visible or implied (just inside the entrance), console table or bench as the ONLY major decorative piece, mirror on the wall, rug runner near the door, wider than a corridor; this is a welcoming vignette at the building's entrance
+- loft: an open architectural space AWAY from the front door — visual cues: mezzanine level above a staircase, open landing at the top of stairs, columns/pillars, railings; NOT near a front door; may have a console table but the dominant feature is the open vertical architecture or staircase
 - hallway: a long narrow corridor or passage inside a home — visual cues: elongated narrow floor plan, doors along the sides, no large furniture (maybe a small table, mirror, or art on the wall)
 - frontyard: the outdoor area in front of a home — visual cues: front door or garage visible, driveway, lawn, garden beds, pathway, fencing along the front of the property
 - backyard: the outdoor area behind or to the side of a home — visual cues: patio, deck, grass lawn, garden, pool, outdoor furniture (chairs, tables, loungers), pergola, fencing enclosing a private outdoor space
 - kids_room: a bedroom or playroom designed for children — visual cues: small-scale bed (toddler/single), colourful or themed décor, toys, play furniture, bunk beds, cartoon/character elements, bright colours, play mats, child-height storage
 
 CRITICAL DISTINCTIONS:
-- living_room vs loft: sofa clearly present → living_room; no sofa + transitional/nook space → loft
-- hallway vs loft: hallway is a long narrow corridor with doors on sides; loft is an open wider space (foyer, landing)
+- foyer vs loft: foyer is AT the front entrance (front door visible/implied, console + mirror vignette); loft is an open mezzanine/staircase landing AWAY from the front door
+- foyer vs hallway: foyer is wider, near front door, with decorative console/bench/mirror; hallway is long and narrow with doors along the sides
+- living_room vs loft: sofa clearly present → living_room; no sofa + open staircase/mezzanine architecture → loft
+- hallway vs loft: hallway is a narrow elongated corridor; loft is an open architectural space (mezzanine, landing)
 - frontyard vs backyard: front door / driveway visible → frontyard; patio / pool / enclosed private garden → backyard
 - indoor vs outdoor: if you can see sky, grass, plants, or are clearly outside → frontyard or backyard, NOT a living room
 - bedroom vs kids_room: adult bedroom with queen/king bed and neutral décor → bedroom; clearly child-themed room with small beds, toys, bright colours, or character décor → kids_room

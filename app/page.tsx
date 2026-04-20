@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-type RoomType = "living_room" | "bedroom" | "dining_room" | "kitchen" | "office" | "loft" | "hallway" | "frontyard" | "backyard" | "kids_room";
+type RoomType = "living_room" | "bedroom" | "dining_room" | "kitchen" | "office" | "foyer" | "loft" | "hallway" | "frontyard" | "backyard" | "kids_room";
 type Product = {
   product_handle: string;
   title: string;
@@ -13,6 +13,7 @@ type Product = {
   max_price?: number | null;
   score?: number | null;
   requestedCategory?: string | null;
+  style_tags?: string[];
 };
 
 type ValidationProduct = {
@@ -47,9 +48,9 @@ type PlacedProduct = {
   similarityScore?: number;
 };
 
-type Stage = "idle" | "detecting" | "retrieving" | "generating" | "ready" | "done" | "error";
+type Stage = "idle" | "detecting" | "retrieving" | "inspiring" | "generating" | "ready" | "done" | "error";
 
-const THEMES = [
+const ALL_THEMES = [
   { id: "scandi", label: "Scandi" },
   { id: "japandi", label: "Japandi" },
   { id: "coastal", label: "Coastal" },
@@ -60,13 +61,26 @@ const THEMES = [
   { id: "modern", label: "Modern" },
 ];
 
+// Themes supported per room type. Rooms not listed here default to ALL_THEMES.
+const ROOM_THEMES: Partial<Record<RoomType, string[]>> = {
+  kitchen:   ["modern", "industrial", "luxury", "bohemian", "mid_century"],
+  bedroom:   ["scandi", "japandi", "coastal", "luxury", "bohemian", "mid_century", "modern"],
+  kids_room: ["scandi", "coastal", "bohemian", "modern"],
+  hallway:   ["scandi", "japandi", "coastal", "luxury", "mid_century", "modern"],
+  foyer:     ["scandi", "japandi", "coastal", "luxury", "industrial", "bohemian", "mid_century", "modern"],
+  loft:      ["scandi", "japandi", "coastal", "luxury", "industrial", "mid_century", "modern"],
+  frontyard: ["coastal", "bohemian", "luxury", "modern"],
+  backyard:  ["coastal", "bohemian", "luxury", "modern"],
+};
+
 const ROOM_LABELS: Record<RoomType, string> = {
   living_room: "Living Room",
   bedroom: "Bedroom",
   dining_room: "Dining Room",
   kitchen: "Kitchen",
   office: "Office",
-  loft: "Loft / Foyer",
+  foyer: "Foyer / Entryway",
+  loft: "Loft / Mezzanine",
   hallway: "Hallway",
   frontyard: "Front Yard",
   backyard: "Back Yard",
@@ -141,12 +155,27 @@ export default function Home() {
 
   const effectiveTheme = customTheme.trim() || theme;
   const effectiveRoom = roomType || detectedRoom;
-  const busy = stage === "detecting" || stage === "retrieving" || stage === "generating";
+  const busy = stage === "detecting" || stage === "retrieving" || stage === "inspiring" || stage === "generating";
 
-  // Auto-load the first "More Matches" page as soon as generation completes
-  // so the section is never blank when the user scrolls down.
+  // Themes available for the current room (kitchen gets 5, everything else gets all 8)
+  const activeThemes = useMemo(() => {
+    const allowed = effectiveRoom ? ROOM_THEMES[effectiveRoom] : null;
+    return allowed ? ALL_THEMES.filter((t) => allowed.includes(t.id)) : ALL_THEMES;
+  }, [effectiveRoom]);
+
+  // When the room changes, reset theme to the first supported one if the current
+  // theme isn't available for the new room (e.g. "scandi" → kitchen → "modern")
   useEffect(() => {
-    if (stage === "done" && currentMorePage === null && !loadingMore) {
+    const allowed = effectiveRoom ? ROOM_THEMES[effectiveRoom] : null;
+    if (allowed && !allowed.includes(theme)) {
+      setTheme(allowed[0]);
+    }
+  }, [effectiveRoom]);
+
+  // Auto-load the first "More Matches" page as soon as Pass 2 starts so the
+  // data is ready (or pre-fetched) by the time generation completes.
+  useEffect(() => {
+    if ((stage === "generating" || stage === "done") && currentMorePage === null && !loadingMore) {
       goToMorePage(1);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -407,8 +436,8 @@ export default function Home() {
   const generateRoom = useCallback(async () => {
     if (!originalImage || !effectiveRoom || selectedProducts.length === 0) return;
 
-    setStage("generating");
-    setStageMsg("Generating room with depth-conditioned editing…");
+    setStage("inspiring");
+    setStageMsg("Creating inspiring room…");
     setError("");
     setGeneratedImage(null);
     setImageHistory([]);
@@ -425,11 +454,31 @@ export default function Home() {
     setMoreSearch("");
 
     try {
+      // ── Pass 1: Pure style transfer (no products) ─────────────────────────
+      const inspireRes = await fetch("/api/fal-inspire", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          originalImage,
+          roomType: effectiveRoom,
+          theme: effectiveTheme,
+        }),
+      });
+      const inspireData = await inspireRes.json();
+      if (!inspireRes.ok || !inspireData.ok) throw new Error(inspireData.error || "Style transfer failed");
+
+      // Show inspiring image immediately — user sees theme while Pass 2 runs
+      setGeneratedImage(inspireData.inspiredImage);
+      setStage("generating");
+      setStageMsg("Placing your products…");
+
+      // ── Pass 2: Product placement on inspired base ────────────────────────
       const res = await fetch("/api/fal-place-products", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           originalImage,
+          styledBaseImage: inspireData.inspiredImage,
           mimeType,
           theme: effectiveTheme,
           roomType: effectiveRoom,
@@ -438,18 +487,13 @@ export default function Home() {
             category: p.normalized_category || p.category || "furniture",
             imageUrl: p.image_url,
             productHandle: p.product_handle,
+            styleTags: p.style_tags || [],
           })),
         }),
       });
 
       const data = await res.json();
 
-      if (data.generatedImage) {
-        // Seed the history with the first generation
-        setImageHistory([data.generatedImage]);
-        setHistoryIndex(0);
-        setGeneratedImage(data.generatedImage);
-      }
       if (data.placedProducts) {
         setPlacedProducts(data.placedProducts);
       }
@@ -462,10 +506,19 @@ export default function Home() {
       }
 
       if (!data.ok) {
+        // Even on validation failure, show the best-effort image
+        if (data.generatedImage) {
+          setImageHistory([data.generatedImage]);
+          setHistoryIndex(0);
+          setGeneratedImage(data.generatedImage);
+        }
         setValidationRejected(true);
         setError(data.error || "Generation failed validation.");
         setStage("done");
-      } else {
+      } else if (data.generatedImage) {
+        setImageHistory([data.generatedImage]);
+        setHistoryIndex(0);
+        setGeneratedImage(data.generatedImage);
         setValidationRejected(false);
         setStage("done");
         setStageMsg("");
@@ -552,7 +605,7 @@ export default function Home() {
 
           <div style={{ fontSize: 15, fontWeight: 700, marginTop: 18, marginBottom: 10 }}>2. Theme</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-            {THEMES.map((item) => {
+            {activeThemes.map((item) => {
               const active = !customTheme.trim() && theme === item.id;
               return (
                 <button
@@ -656,6 +709,7 @@ export default function Home() {
                         src={product.image_url || ""}
                         alt={product.title}
                         style={{ width: 72, height: 72, objectFit: "cover", borderRadius: 10 }}
+                        onError={(e) => { (e.currentTarget.closest("button") as HTMLElement).style.display = "none"; }}
                       />
                       <div>
                         <div style={{ fontSize: 13, fontWeight: 700, lineHeight: 1.35 }}>{product.title}</div>
@@ -692,7 +746,9 @@ export default function Home() {
             <div style={{ background: "white", borderRadius: 16, border: "1px solid #e5e7eb", padding: 14 }}>
               {/* Header row */}
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-                <div style={{ fontSize: 14, fontWeight: 700 }}>Generated room</div>
+                <div style={{ fontSize: 14, fontWeight: 700 }}>
+                  {stage === "inspiring" ? "Inspiring preview…" : stage === "generating" && generatedImage ? "Inspiring preview — placing products…" : "Generated room"}
+                </div>
                 {validation && (
                   <span style={{
                     fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 999,
@@ -739,7 +795,7 @@ export default function Home() {
                 <img src={generatedImage} alt="Generated room" style={{ width: "100%", borderRadius: 12, display: "block" }} />
               ) : (
                 <div style={{ minHeight: 360, borderRadius: 12, background: "#f9fafb", display: "grid", placeItems: "center", color: "#6b7280" }}>
-                  {stage === "generating" ? "Generating…" : "The validated output will appear here."}
+                  {stage === "inspiring" ? "Creating inspiring room…" : stage === "generating" ? "Placing products…" : "The validated output will appear here."}
                 </div>
               )}
 
@@ -1049,16 +1105,28 @@ export default function Home() {
           )}
 
           {/* ── MORE MATCHES panel ─────────────────────────────────────
-               Paginated browse-only panel. Never touches generated image
-               or validation. Each page shows 12 fresh products for the
-               same room × theme. Pages are cached after first fetch. */}
-          {stage === "done" && (
+               Paginated browse-only panel. Shown during generation so users
+               can browse while waiting, and remains visible after done.
+               Each page shows 12 fresh products for the same room × theme. */}
+          {(stage === "generating" || stage === "done") && (
             <section id="more-matches" style={{ background: "white", borderRadius: 20, border: "1px solid #e5e7eb", padding: "22px 24px" }}>
               {/* Header */}
               <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 16, gap: 16, flexWrap: "wrap" }}>
                 <div>
-                  <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: 0.5, textTransform: "uppercase" }}>
-                    More Matches
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: 0.5, textTransform: "uppercase" }}>
+                      More Matches
+                    </div>
+                    {stage === "generating" && (
+                      <span style={{
+                        display: "flex", alignItems: "center", gap: 6,
+                        background: "#eff6ff", border: "1px solid #bfdbfe",
+                        borderRadius: 999, padding: "4px 12px", fontSize: 12, fontWeight: 600, color: "#1d4ed8",
+                      }}>
+                        <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#3b82f6", display: "inline-block" }} />
+                        Placing products in room…
+                      </span>
+                    )}
                   </div>
                   <div style={{ fontSize: 13, color: "#6b7280", marginTop: 4 }}>
                     Browse more {effectiveRoom ? ROOM_LABELS[effectiveRoom] : "room"} products for your {effectiveTheme} theme
@@ -1111,6 +1179,7 @@ export default function Home() {
                             src={product.image_url || ""}
                             alt={product.title}
                             style={{ width: "100%", height: 160, objectFit: "cover", display: "block" }}
+                            onError={(e) => { (e.currentTarget.parentElement as HTMLElement).style.display = "none"; }}
                           />
                           <div style={{ padding: "10px 12px", flex: 1, display: "flex", flexDirection: "column" }}>
                             <div style={{
